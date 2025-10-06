@@ -6,7 +6,7 @@
       <% if pagy.prev %>
         <%= link_to pagy_url_for(pagy, pagy.prev),
               data: { turbo_frame: :_top },
-              class: "inline-flex items-center p-2 text-sm font-medium text-secondary bg-container-inset hover:border-secondary hover:text-secondary" do %>
+              class: "rounded-xl inline-flex items-center p-2 text-sm font-medium text-secondary bg-container-inset hover:border-secondary hover:text-secondary" do %>
           <%= icon("chevron-left") %>
         <% end %>
       <% else %>
@@ -20,7 +20,7 @@
         <% if series_item.is_a?(Integer) %>
           <%= link_to pagy_url_for(pagy, series_item),
                 data: { turbo_frame: :_top },
-                class: "rounded-md px-2 py-1 inline-flex items-center text-sm font-medium text-secondary hover:border-secondary hover:text-secondary" do %>
+                class: "rounded-xl px-2 py-1 inline-flex items-center text-sm font-medium text-secondary hover:border-secondary hover:text-secondary" do %>
             <%= series_item %>
           <% end %>
         <% elsif series_item.is_a?(String) %>
@@ -38,11 +38,11 @@
       <% if pagy.next %>
         <%= link_to pagy_url_for(pagy, pagy.next),
               data: { turbo_frame: :_top },
-              class: "inline-flex items-center p-2 text-sm font-medium text-secondary hover:border-secondary hover:text-secondary" do %>
+              class: "rounded-xl inline-flex items-center p-2 text-sm font-medium text-secondary bg-container-inset hover:border-secondary hover:text-secondary" do %>
           <%= icon("chevron-right") %>
         <% end %>
       <% else %>
-        <div class="inline-flex items-center p-2 text-sm font-medium hover:border-secondary">
+        <div class="inline-flex items-center px-2 py-1text-sm font-medium hover:border-secondary">
           <%= icon("chevron-right") %>
         </div>
       <% end %>
