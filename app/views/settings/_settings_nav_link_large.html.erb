@@ -14,21 +14,15 @@
 
 <%# Mobile version %>
 <%= link_to path, class: "md:hidden w-full bg-container hover:bg-container-inset rounded-xl border border-alpha-black-25 shadow-xs py-3 px-4" do %>
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-center">
     <% if direction == 'previous' %>
       <div class="flex items-center gap-3">
         <%= icon("arrow-left") %>
-        <span class="text-sm text-secondary">Back</span>
-      </div>
-      <div>
-        <span class="text-sm font-medium text-primary"><%= title %></span>
+        <span class="block text-sm font-medium text-primary"><%= title %></span>
       </div>
     <% else %>
-      <div>
-        <span class="text-sm text-secondary">Next</span>
-      </div>
       <div class="flex items-center gap-3">
-        <span class="text-sm font-medium text-primary"><%= title %></span>
+        <span class="block text-sm font-medium text-primary"><%= title %></span>
         <%= icon("arrow-right") %>
       </div>
     <% end %>
