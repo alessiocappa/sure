@@ -448,6 +448,10 @@
     position: fixed;
     top: env(safe-area-inset-top, 0);
   }
+
+  .turbo-progress-bar {
+    margin-top: env(safe-area-inset-top);
+  }
 }
 
 @layer utilities {
