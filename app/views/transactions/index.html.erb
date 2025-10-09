@@ -46,7 +46,7 @@
   <%= render "summary", totals: @search.totals %>
 
   <div id="transactions"
-       data-controller="bulk-select"
+       data-controller="bulk-select checkbox-toggle"
        data-bulk-select-singular-label-value="<%= t(".transaction") %>"
        data-bulk-select-plural-label-value="<%= t(".transactions") %>"
        class="flex flex-col bg-container rounded-xl shadow-border-xs p-4">
@@ -73,8 +73,11 @@
         <% if @transactions.any? %>
           <div class="md:hidden text-xs uppercase font-medium text-secondary mb-2 px-2">
             <%= check_box_tag "selection_entry",
-                              class: "checkbox checkbox--light mr-2 ml-1",
-                              data: { action: "bulk-select#togglePageSelection" } %>
+                              class: "checkbox checkbox--light hidden lg:block mr-2 ml-1",
+                              data: { 
+                                action: "bulk-select#togglePageSelection",
+                                checkbox_toggle_target: "selectionEntry"
+                              } %>
             <span>TRANSACTION</span>
           </div>
         <% end %>
