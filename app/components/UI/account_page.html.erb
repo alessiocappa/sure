@@ -1,7 +1,7 @@
 <%= turbo_stream_from account %>
 
 <%= turbo_frame_tag id do %>
-  <%= tag.div class: "space-y-4 pb-32" do %>
+  <%= tag.div class: "space-y-4 pb-6" do %>
     <%= render "accounts/show/header", account: account, title: title, subtitle: subtitle %>
 
     <%= render UI::Account::Chart.new(account: account, period: chart_period, view: chart_view) %>
