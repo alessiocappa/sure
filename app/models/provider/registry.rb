@@ -62,10 +62,11 @@ class Provider::Registry
 
       def openai
         access_token = ENV.fetch("OPENAI_ACCESS_TOKEN", Setting.openai_access_token)
+        base_url = ENV.fetch("OPENAI_BASE_URL", Setting.openai_base_url)
+        model = ENV.fetch("OPENAI_MODEL", Setting.openai_model)
 
         return nil unless access_token.present?
-
-        Provider::Openai.new(access_token)
+        Provider::Openai.new(access_token, base_url, model)
       end
 
       def enable_banking

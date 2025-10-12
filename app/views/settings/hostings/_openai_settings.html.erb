@@ -25,5 +25,33 @@
                           inputmode: "text",
                           disabled: ENV["OPENAI_ACCESS_TOKEN"].present?,
                           data: { "auto-submit-form-target": "auto" } %>
+    <div>
+      <% if ENV["OPENAI_BASE_URL"].present? %>
+        <p class="text-sm text-secondary"><%= t(".env_configured_message") %></p>
+      <% else %>
+        <p class="text-secondary text-sm my-4"><%= t(".openai_base_url_description") %></p>
+      <% end %>
+    </div>
+  <%= form.text_field :openai_base_url,
+                      label: t(".openai_base_url"),
+                      type: "url",
+                      placeholder: t(".placeholder_openai_base_url"),
+                      value: ENV.fetch("OPENAI_BASE_URL", Setting.openai_base_url),
+                      disabled: ENV["OPENAI_BASE_URL"].present?,
+                      data: { "auto-submit-form-target": "auto" } %>
+    <div>
+      <% if ENV["OPENAI_MODEL"].present? %>
+        <p class="text-sm text-secondary"><%= t(".env_configured_message") %></p>
+      <% else %>
+        <p class="text-secondary text-sm my-4"><%= t(".openai_model_description") %></p>
+      <% end %>
+    </div>
+  <%= form.text_field :openai_model,
+                      label: t(".openai_model"),
+                      type: "text",
+                      placeholder: t(".placeholder_openai_model"),
+                      value: ENV.fetch("OPENAI_MODEL", Setting.openai_model),
+                      disabled: ENV["OPENAI_MODEL"].present?,
+                      data: { "auto-submit-form-target": "auto" } %>
   <% end %>
 </div>
