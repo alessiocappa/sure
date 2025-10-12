@@ -5,6 +5,7 @@ class Provider::Openai < Provider
   Error = Class.new(Provider::Error)
 
   DEFAULT_MODEL = "gpt-4.1"
+  MODELS = %w[gpt-4.1]
 
   def initialize(access_token, base_url = nil, model)
     @model = model.presence || DEFAULT_MODEL
