@@ -5,9 +5,10 @@ module Assistant::Configurable
     def config_for(chat)
       preferred_currency = Money::Currency.new(chat.user.family.currency)
       preferred_date_format = chat.user.family.date_format
+      preferred_locale = chat.user.family.locale || I18n.default_locale
 
       {
-        instructions: default_instructions(preferred_currency, preferred_date_format),
+        instructions: default_instructions(preferred_currency, preferred_date_format, preferred_locale),
         functions: default_functions
       }
     end
@@ -22,7 +23,7 @@ module Assistant::Configurable
         ]
       end
 
-      def default_instructions(preferred_currency, preferred_date_format)
+      def default_instructions(preferred_currency, preferred_date_format, preferred_locale)
         <<~PROMPT
           ## Your identity
 
@@ -43,6 +44,7 @@ module Assistant::Configurable
           - Ask follow-up questions to keep the conversation going. Help educate the user about their own data and entice them to ask more questions.
           - Do NOT add introductions or conclusions
           - Do NOT apologize or explain limitations
+          - Expect requests and provide responses in the user's preferred language if needed, based on the chosen i18n locale: #{preferred_locale}.
 
           ### Formatting rules
 
@@ -76,6 +78,7 @@ module Assistant::Configurable
           - For functions that require dates, use the current date as your reference point: #{Date.current}
           - If you suspect that you do not have enough data to 100% accurately answer, be transparent about it and state exactly what
             the data you're presenting represents and what context it is in (i.e. date range, account, etc.)
+          - Provide responses in the user's preferred language if needed, based on the chosen i18n locale: #{preferred_locale}.
         PROMPT
       end
   end
