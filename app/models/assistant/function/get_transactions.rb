@@ -75,6 +75,7 @@ class Assistant::Function::GetTransactions < Assistant::Function
           description: "Page number"
         },
         order: {
+          type: "string",
           enum: [ "asc", "desc" ],
           description: "Order of the transactions by date"
         },
@@ -102,28 +103,40 @@ class Assistant::Function::GetTransactions < Assistant::Function
         accounts: {
           type: "array",
           description: "Filter transactions by account name",
-          items: { enum: family_account_names },
+          items: {
+            type: "string",
+            enum: family_account_names
+          },
           minItems: 1,
           uniqueItems: true
         },
         categories: {
           type: "array",
           description: "Filter transactions by category name",
-          items: { enum: family_category_names },
+          items: {
+            type: "string",
+            enum: family_category_names
+          },
           minItems: 1,
           uniqueItems: true
         },
         merchants: {
           type: "array",
           description: "Filter transactions by merchant name",
-          items: { enum: family_merchant_names },
+          items: {
+            type: "string",
+            enum: family_merchant_names
+          },
           minItems: 1,
           uniqueItems: true
         },
         tags: {
           type: "array",
           description: "Filter transactions by tag name",
-          items: { enum: family_tag_names },
+          items: {
+            type: "string",
+            enum: family_tag_names
+          },
           minItems: 1,
           uniqueItems: true
         }
