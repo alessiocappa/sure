@@ -8,10 +8,12 @@ class Provider::Openai::ChatConfig
     functions.map do |fn|
       {
         type: "function",
-        name: fn[:name],
-        description: fn[:description],
-        parameters: fn[:params_schema],
-        strict: fn[:strict]
+        function: {
+          name: fn[:name],
+          description: fn[:description],
+          parameters: fn[:params_schema],
+          strict: fn[:strict]
+        }
       }
     end
   end
@@ -19,9 +21,9 @@ class Provider::Openai::ChatConfig
   def build_input(prompt)
     results = function_results.map do |fn_result|
       {
-        type: "function_call_output",
-        call_id: fn_result[:call_id],
-        output: fn_result[:output].to_json
+        role: "tool",
+        tool_call_id: fn_result[:call_id],
+        content: fn_result[:output].to_json
       }
     end
 

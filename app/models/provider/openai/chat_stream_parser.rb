@@ -6,14 +6,14 @@ class Provider::Openai::ChatStreamParser
   end
 
   def parsed
-    type = object.dig("type")
-
-    case type
-    when "response.output_text.delta", "response.refusal.delta"
-      Chunk.new(type: "output_text", data: object.dig("delta"))
-    when "response.completed"
-      raw_response = object.dig("response")
-      Chunk.new(type: "response", data: parse_response(raw_response))
+    chunk = object[:chunk]
+    unless chunk.choices.to_a.empty?
+      choice = chunk.choices.first
+      if choice.delta.content.present?
+        Chunk.new(type: "output_text", data: choice.delta.content)
+      elsif choice.finish_reason
+        Chunk.new(type: "response", data: parse_response(object.snapshot))
+      end
     end
   end
 
