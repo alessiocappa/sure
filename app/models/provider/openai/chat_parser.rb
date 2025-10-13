@@ -22,38 +22,48 @@ class Provider::Openai::ChatParser
     ChatFunctionRequest = Provider::LlmConcept::ChatFunctionRequest
 
     def response_id
-      object.dig("id")
+      object[:id]
     end
 
     def response_model
-      object.dig("model")
+      object[:model]
+    end
+
+    def choices
+      choices = object[:choices]
+      choices.is_a?(Array) ? choices : []
     end
 
     def messages
-      message_items = object.dig("output").filter { |item| item.dig("type") == "message" }
+      choices.map do |choice|
+        message = choice[:message]
+        text = message[:content]
+        refusal = message[:refusal]
 
-      message_items.map do |message_item|
         ChatMessage.new(
-          id: message_item.dig("id"),
-          output_text: message_item.dig("content").map do |content|
-            text = content.dig("text")
-            refusal = content.dig("refusal")
-            text || refusal
-          end.flatten.join("\n")
+          id: response_id,
+          output_text: text || refusal
         )
       end
     end
 
     def function_requests
-      function_items = object.dig("output").filter { |item| item.dig("type") == "function_call" }
+      return [] if choices.empty?
 
-      function_items.map do |function_item|
+      choice = choices.first
+      message = choice[:message]
+      tool_calls = message[:tool_calls] || []
+
+      tool_calls.map do |tool_call|
+        function = tool_call[:function]
+        next unless function
+
         ChatFunctionRequest.new(
-          id: function_item.dig("id"),
-          call_id: function_item.dig("call_id"),
-          function_name: function_item.dig("name"),
-          function_args: function_item.dig("arguments")
+          id: tool_call[:id],
+          call_id: tool_call[:id],
+          function_name: function[:name],
+          function_args: function[:arguments]
         )
-      end
+      end.compact
     end
 end

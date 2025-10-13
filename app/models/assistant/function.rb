@@ -47,9 +47,15 @@ class Assistant::Function
     attr_reader :user
 
     def build_schema(properties: {}, required: [])
+      normalized_properties = properties.transform_values do |definition|
+        definition = definition.symbolize_keys
+        definition[:type] ||= "string"
+        definition
+      end
+
       {
         type: "object",
-        properties: properties,
+        properties: normalized_properties,
         required: required,
         additionalProperties: false
       }

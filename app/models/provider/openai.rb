@@ -4,10 +4,18 @@ class Provider::Openai < Provider
   # Subclass so errors caught in this provider are raised as Provider::Openai::Error
   Error = Class.new(Provider::Error)
 
+  DEFAULT_MODEL = "gpt-4.1"
   MODELS = %w[gpt-4.1]
 
-  def initialize(access_token)
-    @client = ::OpenAI::Client.new(access_token: access_token)
+  def initialize(access_token, base_url = nil, model)
+    @model = model.presence || DEFAULT_MODEL
+
+    params = {
+      api_key: access_token,
+      base_url: base_url
+    }.compact
+
+    @client = ::OpenAI::Client.new(**params)
   end
 
   def supports_model?(model)
@@ -20,7 +28,7 @@ class Provider::Openai < Provider
 
       result = AutoCategorizer.new(
         client,
-        model: model,
+        model: @model, # Ignore model coming from function parameters for now
         transactions: transactions,
         user_categories: user_categories
       ).auto_categorize
@@ -42,7 +50,7 @@ class Provider::Openai < Provider
 
       result = AutoMerchantDetector.new(
         client,
-        model: model,
+        model: @model, # Ignore model coming from function parameters for now
         transactions: transactions,
         user_merchants: user_merchants
       ).auto_detect_merchants
@@ -91,43 +99,31 @@ class Provider::Openai < Provider
         nil
       end
 
-      input_payload = chat_config.build_input(prompt)
-
-      raw_response = client.responses.create(parameters: {
-        model: model,
-        input: input_payload,
+      params = {
+        model: @model, # Ignore model coming from function parameters for now
+        messages: chat_config.build_input(prompt),
         instructions: instructions,
         tools: chat_config.tools,
-        previous_response_id: previous_response_id,
-        stream: stream_proxy
-      })
+        previous_response_id: previous_response_id
+      }.compact
 
-      # If streaming, Ruby OpenAI does not return anything, so to normalize this method's API, we search
-      # for the "response chunk" in the stream and return it (it is already parsed)
-      if stream_proxy.present?
-        response_chunk = collected_chunks.find { |chunk| chunk.type == "response" }
-        response = response_chunk.data
-        log_langfuse_generation(
-          name: "chat_response",
-          model: model,
-          input: input_payload,
-          output: response.messages.map(&:output_text).join("\n"),
-          session_id: session_id,
-          user_identifier: user_identifier
-        )
-        response
+      if streamer.present?
+        # Proxy that converts raw stream to "LLM Provider concept" stream
+        stream_proxy = client.chat.completions.stream(**params)
+        stream_proxy.each do |event|
+          case event
+          when OpenAI::Streaming::ChatChunkEvent
+            parsed_chunk = ChatStreamParser.new(event).parsed
+
+            unless parsed_chunk.nil?
+              streamer.call(parsed_chunk)
+              collected_chunks << parsed_chunk
+            end
+          end
+        end
       else
-        parsed = ChatParser.new(raw_response).parsed
-        log_langfuse_generation(
-          name: "chat_response",
-          model: model,
-          input: input_payload,
-          output: parsed.messages.map(&:output_text).join("\n"),
-          usage: raw_response["usage"],
-          session_id: session_id,
-          user_identifier: user_identifier
-        )
-        parsed
+        raw_response = client.chat.completions.create(**params)
+        ChatParser.new(raw_response).parsed
       end
     end
   end

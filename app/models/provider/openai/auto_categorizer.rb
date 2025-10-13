@@ -9,21 +9,21 @@ class Provider::Openai::AutoCategorizer
   end
 
   def auto_categorize
-    response = client.responses.create(parameters: {
+    response = client.chat.completions.create(
       model: model.presence || DEFAULT_MODEL,
-      input: [ { role: "developer", content: developer_message } ],
-      text: {
-        format: {
-          type: "json_schema",
+      messages: [ { role: "developer", content: developer_message } ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "auto_categorize_personal_finance_transactions",
           strict: true,
           schema: json_schema
         }
       },
       instructions: instructions
-    })
+    )
 
-    Rails.logger.info("Tokens used to auto-categorize transactions: #{response.dig("usage").dig("total_tokens")}")
+    Rails.logger.info("Tokens used to auto-categorize transactions: #{response.usage.total_tokens}")
 
     build_response(extract_categorizations(response))
   end
@@ -70,7 +70,7 @@ class Provider::Openai::AutoCategorizer
     end
 
     def extract_categorizations(response)
-      response_json = JSON.parse(response.dig("output")[0].dig("content")[0].dig("text"))
+      response_json = JSON.parse(response.choices.first&.message&.content)
       response_json.dig("categorizations")
     end
 
