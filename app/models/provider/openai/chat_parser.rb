@@ -48,7 +48,7 @@ class Provider::Openai::ChatParser
     end
 
     def function_requests
-      return [] if choices_array.empty?
+      return [] if choices.empty?
 
       choice = choices.first
       message = choice[:message]
