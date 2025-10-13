@@ -7,7 +7,7 @@ class Provider::Openai < Provider
   DEFAULT_MODEL = "gpt-4.1"
   MODELS = %w[gpt-4.1]
 
-  def initialize(access_token, base_url = nil, model)
+  def initialize(access_token, base_url = nil, model = nil)
     @model = model.presence || DEFAULT_MODEL
 
     params = {
