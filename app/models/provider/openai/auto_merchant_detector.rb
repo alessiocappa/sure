@@ -9,21 +9,21 @@ class Provider::Openai::AutoMerchantDetector
   end
 
   def auto_detect_merchants
-    response = client.responses.create(parameters: {
+    response = client.chat.completions.create(
       model: model.presence || DEFAULT_MODEL,
-      input: [ { role: "developer", content: developer_message } ],
-      text: {
-        format: {
-          type: "json_schema",
+      messages: [ { role: "developer", content: developer_message } ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "auto_detect_personal_finance_merchants",
           strict: true,
           schema: json_schema
         }
       },
       instructions: instructions
-    })
+    )
 
-    Rails.logger.info("Tokens used to auto-detect merchants: #{response.dig("usage").dig("total_tokens")}")
+    Rails.logger.info("Tokens used to auto-detect merchants: #{response.usage.total_tokens}")
 
     build_response(extract_categorizations(response))
   end
@@ -91,7 +91,7 @@ class Provider::Openai::AutoMerchantDetector
     end
 
     def extract_categorizations(response)
-      response_json = JSON.parse(response.dig("output")[0].dig("content")[0].dig("text"))
+      response_json = JSON.parse(response.choices.first&.message&.content)
       response_json.dig("merchants")
     end
 
@@ -111,11 +111,11 @@ class Provider::Openai::AutoMerchantDetector
                   enum: transactions.map { |t| t[:id] }
                 },
                 business_name: {
-                  type: [ "string", "null" ],
+                  type: "string",
                   description: "The detected business name of the transaction, or `null` if uncertain"
                 },
                 business_url: {
-                  type: [ "string", "null" ],
+                  type: "string",
                   description: "The URL of the detected business, or `null` if uncertain"
                 }
               },
