@@ -129,8 +129,8 @@ jobs:
           context: .
           build-args: BUILD_COMMIT_SHA=${{ github.sha }}
           platforms: 'linux/${{ matrix.platform }}'
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-${{ matrix.platform }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-${{ matrix.platform }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-new-${{ matrix.platform }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-new-${{ matrix.platform }},mode=max
           labels: ${{ steps.meta.outputs.labels }}
           provenance: false
           push: true
