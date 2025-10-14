@@ -20,7 +20,7 @@ module Provider::LlmConcept
 
   def chat_response(
     prompt,
-    model:,
+    model: nil,
     instructions: nil,
     functions: [],
     function_results: [],
