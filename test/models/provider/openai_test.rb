@@ -4,8 +4,10 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
   include LLMInterfaceTest
 
   setup do
-    @subject = @openai = Provider::Openai.new(ENV.fetch("OPENAI_ACCESS_TOKEN", "test-openai-token"))
-    @subject_model = "gpt-4.1"
+    api_key = ENV.fetch("OPENAI_ACCESS_TOKEN", "test-openai-token")
+    base_url = ENV.fetch("OPENAI_BASE_URL", "https://api.openai.com/v1")
+
+    @subject = @openai = Provider::Openai.new(api_key, base_url)
   end
 
   test "openai errors are automatically raised" do
@@ -117,8 +119,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
   test "basic chat response" do
     VCR.use_cassette("openai/chat/basic_response") do
       response = @subject.chat_response(
-        "This is a chat test.  If it's working, respond with a single word: Yes",
-        model: @subject_model
+        "This is a chat test.  If it's working, respond with a single word: Yes"
       )
 
       assert response.success?
@@ -137,7 +138,6 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       response = @subject.chat_response(
         "This is a chat test.  If it's working, respond with a single word: Yes",
-        model: @subject_model,
         streamer: mock_streamer
       )
 
@@ -167,7 +167,6 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       first_response = @subject.chat_response(
         prompt,
-        model: @subject_model,
         instructions: "Use the tools available to you to answer the user's question.",
         functions: functions
       )
@@ -180,7 +179,6 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       second_response = @subject.chat_response(
         prompt,
-        model: @subject_model,
         function_results: [ {
           call_id: function_request.call_id,
           output: { amount: 10000, currency: "USD" }.to_json
@@ -216,7 +214,6 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
       # Call #1: First streaming call, will return a function request
       @subject.chat_response(
         prompt,
-        model: @subject_model,
         instructions: "Use the tools available to you to answer the user's question.",
         functions: functions,
         streamer: mock_streamer
@@ -237,7 +234,6 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
       # Call #2: Second streaming call, will return a function result
       @subject.chat_response(
         prompt,
-        model: @subject_model,
         function_results: [
           {
             call_id: function_request.call_id,
