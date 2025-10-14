@@ -4,12 +4,10 @@ class Provider::Openai < Provider
   # Subclass so errors caught in this provider are raised as Provider::Openai::Error
   Error = Class.new(Provider::Error)
 
-  DEFAULT_MODEL = "gpt-4.1"
+  DEFAULT_MODEL = ENV.fetch("OPENAI_MODEL", "gpt-4.1")
   MODELS = %w[gpt-4.1]
 
   def initialize(access_token, base_url = nil, model = nil)
-    @model = model.presence || DEFAULT_MODEL
-
     params = {
       api_key: access_token,
       base_url: base_url
@@ -28,7 +26,7 @@ class Provider::Openai < Provider
 
       result = AutoCategorizer.new(
         client,
-        model: @model, # Ignore model coming from function parameters for now
+        model: model.presence || DEFAULT_MODEL,
         transactions: transactions,
         user_categories: user_categories
       ).auto_categorize
@@ -50,7 +48,7 @@ class Provider::Openai < Provider
 
       result = AutoMerchantDetector.new(
         client,
-        model: @model, # Ignore model coming from function parameters for now
+        model: model.presence || DEFAULT_MODEL,
         transactions: transactions,
         user_merchants: user_merchants
       ).auto_detect_merchants
@@ -100,7 +98,7 @@ class Provider::Openai < Provider
       end
 
       params = {
-        model: @model, # Ignore model coming from function parameters for now
+        model: model.presence || DEFAULT_MODEL,
         messages: chat_config.build_input(prompt),
         instructions: instructions,
         tools: chat_config.tools,
