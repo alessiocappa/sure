@@ -1,5 +1,4 @@
 class Assistant::Responder
-
   DEFAULT_MODEL = "gpt-4.1"
 
   def initialize(message:, instructions:, function_tool_caller:, llm:)
