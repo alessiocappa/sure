@@ -5,7 +5,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
   setup do
     api_key = ENV.fetch("OPENAI_ACCESS_TOKEN", "test-openai-token")
-    base_url = ENV.fetch("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    base_url = ENV.fetch("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
 
     @subject = @openai = Provider::Openai.new(api_key, base_url)
   end
