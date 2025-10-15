@@ -7,7 +7,7 @@
       <div class="flex items-center gap-3">
         <%= icon "chevron-right", class: "group-open:transform group-open:rotate-90" %>
         <%= tag.span class: class_names("text-sm text-primary font-medium", "animate-pulse" => account_group.syncing?) do %>
-          <%= account_group.name %>
+          <%= t(".#{account_group.name.parameterize(separator: '_')}") %>
         <% end %>
       </div>
 

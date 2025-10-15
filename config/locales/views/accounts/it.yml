@@ -3,6 +3,16 @@ it:
   accounts:
     account:
       troubleshoot: Risoluzione dei problemi
+    accountable_group:
+      cash: Liquidità
+      credit_cards: Carte di Credito
+      crypto: Crypto
+      investments: Investimenti
+      loans: Prestiti
+      other_assets: Altre Attività
+      other_liabilities: Altra Passività
+      properties: Immobili
+      vehicles: Veicoli
     chart:
       data_not_available: Dati non disponibili per il periodo selezionato
     create:
