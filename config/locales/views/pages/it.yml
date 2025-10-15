@@ -1,0 +1,26 @@
+---
+en:
+  pages:
+    changelog:
+      title: Novità
+    dashboard:
+      balance_sheet:
+        assets:
+          Attività
+        liabilities:
+          Passività
+      cashflow_sanky:
+        add_transaction: Aggiungi transazione
+        data_not_available: Nessun dato di flusso di cassa per questo periodo
+        data_not_available_subtitle: Aggiungi transazioni per visualizzare i dati del flusso di cassa o estendi il periodo di tempo
+        title: Flusso di cassa
+      dashboard_subtitle: Ecco cosa sta succedendo con le tue finanze
+      net_worth_chart:
+        data_not_available: Dati non disponibili per il periodo selezionato
+        title: Patrimonio netto
+      new_account: Nuovo
+      no_account_empty_state:
+        new_account: Nuovo conto
+        no_account_subtitle: Poiché non sono stati aggiunti conti, non ci sono dati da visualizzare. Aggiungi i tuoi primi conti per iniziare a vedere i dati della dashboard.
+        no_account_title: Ancora nessun conto
+      welcome_message: "Bentornato, %{user}"

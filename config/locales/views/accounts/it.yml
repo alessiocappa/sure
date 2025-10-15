@@ -1,0 +1,64 @@
+---
+it:
+  accounts:
+    account:
+      troubleshoot: Risoluzione dei problemi
+    chart:
+      data_not_available: Dati non disponibili per il periodo selezionato
+    create:
+      success: "Account %{type} creato"
+    destroy:
+      success: "Account %{type} programmato per l'eliminazione"
+    empty:
+      empty_message: Aggiungi un account tramite connessione, importazione o inserimento manuale.
+      new_account: Nuovo account
+      no_accounts: Nessun account ancora
+    form:
+      balance: Saldo attuale
+      name_label: Nome account
+      name_placeholder: Esempio nome account
+    index:
+      accounts: Conti
+      manual_accounts:
+        other_accounts: Altri conti
+      new_account: Nuovo account
+      sync: Sincronizza tutto
+    new:
+      import_accounts: Importa conti
+      method_selector:
+        connected_entry: Collega account
+        connected_entry_eu: Collega account UE
+        manual_entry: Inserisci saldo account
+        title: Come vuoi aggiungerlo?
+      title: Cosa vuoi aggiungere?
+    show:
+      activity:
+        amount: Importo
+        balance: Saldo
+        date: Data
+        entries: movimenti
+        entry: movimento
+        new: Nuovo
+        new_balance: Nuovo saldo
+        new_transaction: Nuova transazione
+        no_entries: Nessun movimento trovato
+        title: Attività
+      chart:
+        balance: Saldo
+        owed: Importo dovuto
+      menu:
+        confirm_accept: Elimina "%{name}"
+        confirm_body_html: "<p>Eliminando questo account, cancellerai la sua cronologia
+          dei valori, influenzando vari aspetti del tuo account complessivo. Questa azione
+          avrà un impatto diretto sul calcolo del tuo patrimonio netto e sui grafici dell'account.</p><br /> <p>Dopo l'eliminazione, non sarà possibile ripristinare
+          le informazioni dell'account poiché dovrai aggiungerlo come un nuovo account.</p>"
+        confirm_title: Eliminare l'account?
+        edit: Modifica
+        import: Importa transazioni
+        manage: Gestisci account
+    update:
+      success: "Account %{type} aggiornato"
+  email_confirmations:
+    new:
+      invalid_token: Link di conferma non valido o scaduto.
+      success_login: La tua email è stata confermata. Accedi con il tuo nuovo indirizzo email.
