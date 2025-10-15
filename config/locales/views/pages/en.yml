@@ -5,10 +5,21 @@ en:
       title: What's new
     dashboard:
       balance_sheet:
-        assets:
-          Assets
-        labilities:
-          Liabilities
+        assets: Assets
+        labilities: Liabilities
+        name: Name
+        value: Value
+        weight: Weight
+        account: Account
+        cash: Cash
+        credit_cards: Credit Cards
+        crypto: Crypto
+        investments: Investments
+        loans: Loans
+        other_assets: Other Assets
+        other_liabilities: Other Liabilities
+        properties: Properties
+        vehicles: Vehicles
       cashflow_sanky:
         add_transaction: Add transaction
         data_not_available: No cash flow data for this time period

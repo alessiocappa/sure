@@ -5,10 +5,21 @@ en:
       title: Novità
     dashboard:
       balance_sheet:
-        assets:
-          Attività
-        liabilities:
-          Passività
+        assets: Attività
+        liabilities: Passività
+        name: Nome
+        value: Valore
+        weight: Peso
+        account: Conto
+        cash: Liquidità
+        credit_cards: Carte di Credito
+        crypto: Crypto
+        investments: Investimenti
+        loans: Prestiti
+        other_assets: Altre Attività
+        other_liabilities: Altra Passività
+        properties: Immobili
+        vehicles: Veicoli
       cashflow_sanky:
         add_transaction: Aggiungi transazione
         data_not_available: Nessun dato di flusso di cassa per questo periodo
