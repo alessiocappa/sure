@@ -20,7 +20,7 @@ en:
         other_liabilities: Other Liabilities
         properties: Properties
         vehicles: Vehicles
-      cashflow_sanky:
+      cashflow_sankey:
         add_transaction: Add transaction
         data_not_available: No cash flow data for this time period
         data_not_available_subtitle: Add transactions to display cash flow data or expand the time period
