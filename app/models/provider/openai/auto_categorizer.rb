@@ -1,5 +1,5 @@
 class Provider::Openai::AutoCategorizer
-  DEFAULT_MODEL = ENV.fetch("OPENAI_MODEL", "gpt-4.1")
+  DEFAULT_MODEL = ENV["OPENAI_MODEL"].presence || Setting.openai_model.presence || "gpt-4.1"
 
   def initialize(client, model: "", transactions: [], user_categories: [])
     @client = client

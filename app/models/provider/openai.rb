@@ -4,7 +4,7 @@ class Provider::Openai < Provider
   # Subclass so errors caught in this provider are raised as Provider::Openai::Error
   Error = Class.new(Provider::Error)
 
-  DEFAULT_MODEL = ENV.fetch("OPENAI_MODEL", "gpt-4.1")
+  DEFAULT_MODEL = ENV["OPENAI_MODEL"].presence || Setting.openai_model.presence || "gpt-4.1"
   MODELS = %w[gpt-4.1]
 
   def initialize(access_token, base_url = nil, model = nil)
