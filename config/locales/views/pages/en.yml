@@ -4,11 +4,24 @@ en:
     changelog:
       title: What's new
     dashboard:
+      balance_sheet:
+        assets:
+          Assets
+        labilities:
+          Liabilities
+      cashflow_sanky:
+        add_transaction: Add transaction
+        data_not_available: No cash flow data for this time period
+        data_not_available_subtitle: Add transactions to display cash flow data or expand the time period
+        title: Cashflow
+      dashboard_subtitle: Here's what's happening with your finances
       net_worth_chart:
         data_not_available: Data not available for the selected period
         title: Net Worth
+      new_account: New
       no_account_empty_state:
         new_account: New account
         no_account_subtitle: Since no accounts have been added, there's no data to
           display. Add your first accounts to start viewing dashboard data.
         no_account_title: No accounts yet
+      welcome_message: "Welcome back, %{user}"

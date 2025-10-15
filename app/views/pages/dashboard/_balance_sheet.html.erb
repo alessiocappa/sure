@@ -6,7 +6,7 @@
       <div class="flex items-center gap-2">
         <h2 class="text-lg font-medium inline-flex items-center gap-1.5">
           <span class="<%= "animate-pulse" if classification_group.syncing? %>">
-            <%= classification_group.name %>
+            <%= t(".#{classification_group.name.downcase}") %>
           </span>
 
           <% if classification_group.account_groups.any? %>
