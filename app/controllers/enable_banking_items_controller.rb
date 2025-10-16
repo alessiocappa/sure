@@ -14,7 +14,9 @@ class EnableBankingItemsController < ApplicationController
   def new
     @enable_banking_item = Current.family.enable_banking_items.build
     available_aspsps = enable_banking_provider.get_available_aspsps
-    @aspsps = available_aspsps.map do |aspsp|
+    @aspsps = available_aspsps
+      .sort_by { |aspsp| aspsp["name"].to_s.downcase }
+      .map do |aspsp|
       [ aspsp["name"], aspsp["name"] ]
     end
   rescue => error
@@ -39,7 +41,7 @@ class EnableBankingItemsController < ApplicationController
 
   def update_connection
     enable_banking_item = EnableBankingItem.find_by(id: params[:id])
-    auth_url = generate_authorization_url(@enable_banking_item.aspsp_name, @enable_banking_item.aspsp_country, @enable_banking_item.id)
+    auth_url = generate_authorization_url(@enable_banking_item.aspsp_name, @enable_banking_item.aspsp_country, enable_banking_item.id)
     redirect_to auth_url, allow_other_host: true, status: :see_other
   rescue => error
     redirect_to enable_banking_items_path, alert: t(".authorization_error")
