@@ -13,7 +13,7 @@
     <%= yield :head %>
   </head>
 
-  <body class="h-full bg-surface overflow-hidden lg:overflow-auto antialiased">
+  <body class="h-full bg-surface overflow-hidden antialiased">
     <div class="fixed inset-0 lg:relative h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <% if Rails.env.development? %>
         <button hidden data-controller="hotkey" data-hotkey="t t /" data-action="theme#toggle"></button>
