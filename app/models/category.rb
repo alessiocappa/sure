@@ -47,7 +47,7 @@ class Category < ApplicationRecord
 
   class << self
     def icon_codes
-      %w[bus circle-dollar-sign ambulance apple award baby battery lightbulb bed-single beer bluetooth book briefcase building credit-card camera utensils cooking-pot cookie dices drama dog drill drum dumbbell gamepad-2 graduation-cap house hand-helping ice-cream-cone phone piggy-bank pill pizza printer puzzle ribbon shopping-cart shield-plus ticket trees]
+      %w[bus circle-dollar-sign ambulance apple award baby battery lightbulb bed-single beer bluetooth book briefcase building credit-card camera utensils cooking-pot cookie dices drama dog drill drum dumbbell gamepad-2 graduation-cap house hand-helping ice-cream-cone phone tv piggy-bank pill pizza printer puzzle ribbon shopping-cart shield-plus ticket trees shopping-bag shopping-basket trending-up martini wine banknote tree-palm unplug party-popper heart hand-heart heart-handshake tablet-smartphone gift car fuel circle-parking receipt-text handshake undo-2 landmark hotel flower flower-2 calendar-heart percent popcorn gem]
     end
 
     def bootstrap!
