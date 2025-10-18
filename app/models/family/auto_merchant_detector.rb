@@ -73,12 +73,12 @@ class Family::AutoMerchantDetector
       return nil if url.nil? || url.strip.empty?
 
       cleaned = url.downcase.strip
-      cleaned = cleaned.gsub(%r{^(https?:)?\/+}, '')
-      cleaned = cleaned.gsub(/^www\./, '')
-      cleaned = cleaned.gsub(/\/+$/, '')
+      cleaned = cleaned.gsub(%r{^(https?:)?\/+}, "")
+      cleaned = cleaned.gsub(/^www\./, "")
+      cleaned = cleaned.gsub(/\/+$/, "")
 
       # Extract main domain only
-      domain_parts = cleaned.split('.')
+      domain_parts = cleaned.split(".")
 
       if domain_parts.length >= 2
         core = domain_parts[-2]
