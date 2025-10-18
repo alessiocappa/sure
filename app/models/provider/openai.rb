@@ -73,7 +73,8 @@ class Provider::Openai < Provider
     streamer: nil,
     previous_response_id: nil,
     session_id: nil,
-    user_identifier: nil
+    user_identifier: nil,
+    previous_messages: []
   )
     with_provider_response do
       chat_config = ChatConfig.new(
@@ -99,7 +100,7 @@ class Provider::Openai < Provider
 
       params = {
         model: model.presence || DEFAULT_MODEL,
-        messages: chat_config.build_input(prompt),
+        messages: chat_config.build_input(prompt, previous_messages: previous_messages),
         instructions: instructions,
         tools: chat_config.tools,
         previous_response_id: previous_response_id

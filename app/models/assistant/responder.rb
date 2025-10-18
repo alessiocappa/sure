@@ -61,6 +61,25 @@ class Assistant::Responder
       )
     end
 
+    def build_message_history
+      chat.messages.order(:created_at).map do |msg|
+        {
+          role: map_type_to_role(msg.type),
+          content: msg.content
+        }
+      end
+    end
+
+    def map_type_to_role(type)
+      case type
+      when "SystemMessage" then "system"
+      when "UserMessage" then "user"
+      when "AssistantMessage" then "assistant"
+      else
+        "user"
+      end
+    end
+
     def get_llm_response(streamer:, function_results: [], previous_response_id: nil)
       response = llm.chat_response(
         message.content,
@@ -71,7 +90,8 @@ class Assistant::Responder
         streamer: streamer,
         previous_response_id: previous_response_id,
         session_id: chat_session_id,
-        user_identifier: chat_user_identifier
+        user_identifier: chat_user_identifier,
+        previous_messages: build_message_history
       )
 
       unless response.success?
