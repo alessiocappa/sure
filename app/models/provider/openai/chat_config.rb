@@ -19,21 +19,21 @@ class Provider::Openai::ChatConfig
   end
 
   def build_input(prompt, previous_messages: [])
-  new_user_message = { role: "user", content: prompt }
+    new_user_message = { role: "user", content: prompt }
 
-  tool_result_messages = function_results.map do |fn_result|
-    {
-      role: "tool",
-      tool_call_id: fn_result[:call_id],
-      content: fn_result[:output].to_json
-    }
-  end
+    tool_result_messages = function_results.map do |fn_result|
+      {
+        role: "tool",
+        tool_call_id: fn_result[:call_id],
+        content: fn_result[:output].to_json
+      }
+    end
 
-  [
-    *previous_messages,
-    new_user_message,
-    *tool_result_messages
-  ]
+    [
+      *previous_messages,
+      new_user_message,
+      *tool_result_messages
+    ]
 end
 
   private
