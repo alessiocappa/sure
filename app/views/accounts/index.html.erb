@@ -29,6 +29,10 @@
       <%= render @plaid_items.sort_by(&:created_at) %>
     <% end %>
 
+    <% if @enable_banking_items.any? %>
+      <%= render @enable_banking_items.sort_by(&:created_at) %>
+    <% end %>
+
     <% if @simplefin_items.any? %>
       <%= render @simplefin_items.sort_by(&:created_at) %>
     <% end %>
