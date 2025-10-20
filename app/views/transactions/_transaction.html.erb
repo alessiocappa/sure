@@ -35,8 +35,13 @@
                 </div>
               <% end %>
             </div>
-            <div class="flex lg:hidden items-center gap-1 col-span-2">
+            <div class="flex lg:hidden items-center gap-1 col-span-2 relative">
               <%= render "transactions/transaction_category", transaction: transaction %>
+              <% if transaction.merchant&.logo_url.present? %>
+                <%= image_tag transaction.merchant.logo_url,
+                    class: "w-5 h-5 rounded-full absolute -bottom-1 -right-1",
+                    loading: "lazy" %>
+              <% end %>
             </div>
 
             <div class="truncate">
