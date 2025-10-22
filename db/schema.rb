@@ -10,10 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_08_25_224717) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_22_205440) do
   # These are extensions that must be enabled in order to support this database
+  enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
-  enable_extension "plpgsql"
 
   # Custom types defined in this database.
   # Note that some types may not work with other database engines. Be careful if changing database.
@@ -823,7 +823,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_08_25_224717) do
   create_table "trades", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "security_id", null: false
     t.decimal "qty", precision: 19, scale: 4
-    t.decimal "price", precision: 19, scale: 4
+    t.decimal "price", precision: 19, scale: 10
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "currency"
