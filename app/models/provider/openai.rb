@@ -84,20 +84,6 @@ class Provider::Openai < Provider
 
       collected_chunks = []
 
-      # Proxy that converts raw stream to "LLM Provider concept" stream
-      stream_proxy = if streamer.present?
-        proc do |chunk|
-          parsed_chunk = ChatStreamParser.new(chunk).parsed
-
-          unless parsed_chunk.nil?
-            streamer.call(parsed_chunk)
-            collected_chunks << parsed_chunk
-          end
-        end
-      else
-        nil
-      end
-
       params = {
         model: model.presence || DEFAULT_MODEL,
         messages: chat_config.build_input(prompt, previous_messages: previous_messages),
