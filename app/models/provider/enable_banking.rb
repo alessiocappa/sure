@@ -117,7 +117,7 @@ class Provider::EnableBanking < Provider
     result = with_provider_response do
       response = client.get("#{base_url}/accounts/#{account_id}/transactions") do |req|
         if !fetch_all
-          req.params["date_from"] = 30.days.ago.to_date.iso8601
+          req.params["date_from"] = 7.days.ago.to_date.iso8601
         else
           req.params["strategy"] = "longest"
         end
