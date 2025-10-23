@@ -107,7 +107,7 @@ class Provider::Openai < Provider
           end
         end
         response_chunk = collected_chunks.find { |chunk| chunk.type == "response" }
-        response_chunk.data
+        response_chunk&.data
       else
         raw_response = client.chat.completions.create(**params)
         ChatParser.new(raw_response).parsed
