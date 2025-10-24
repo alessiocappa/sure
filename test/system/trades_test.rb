@@ -52,7 +52,7 @@ class TradesTest < ApplicationSystemTestCase
     visit_trades
 
     within_trades do
-      assert_text "#{qty}.0 shares of AAPL"
+      assert_text "Sell #{qty}.0 shares of AAPL"
     end
   end
 
