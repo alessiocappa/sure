@@ -1,4 +1,5 @@
-#!/usr/bin/env sh
+#!/usr/bin/env ruby
+exec "./bin/rails", "server", *ARGV
 
 if ! gem list foreman -i --silent; then
   echo "Installing foreman..."
