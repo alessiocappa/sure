@@ -24,9 +24,7 @@ gem "stimulus-rails"
 gem "turbo-rails"
 gem "view_component"
 
-# https://github.com/lookbook-hq/lookbook/issues/712
-# TODO: Remove max version constraint when fixed
-gem "lookbook", "2.3.11"
+gem "lookbook"
 
 gem "hotwire_combobox"
 
@@ -44,7 +42,7 @@ gem "logtail-rails"
 gem "skylight", groups: [ :production ]
 
 # Active Storage
-gem "aws-sdk-s3", "~> 1.177.0", require: false
+gem "aws-sdk-s3", ">= 1.177.0", require: false
 gem "image_processing", ">= 1.2"
 
 # Other
@@ -73,14 +71,14 @@ gem "httparty"
 gem "rotp", "~> 6.3"
 gem "rqrcode", "~> 3.0"
 gem "activerecord-import"
-gem "rubyzip", "~> 2.3"
+gem "rubyzip"
 
 # State machines
 gem "aasm"
 gem "after_commit_everywhere", "~> 1.0"
 
 # AI
-gem "openai", "~> 0.31.0"
+gem "openai"
 gem "langfuse-ruby", "~> 0.1.4", require: "langfuse"
 
 group :development, :test do
