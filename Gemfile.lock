@@ -206,6 +206,7 @@ GEM
       net-http (>= 0.5.0)
     faraday-retry (2.3.2)
       faraday (~> 2.0)
+    ffi (1.17.2-aarch64-linux-gnu)
     ffi (1.17.2-arm64-darwin)
     foreman (0.90.0)
       thor (~> 1.4)
@@ -347,6 +348,8 @@ GEM
     net-smtp (0.5.1)
       net-protocol
     nio4r (2.7.4)
+    nokogiri (1.18.10-aarch64-linux-gnu)
+      racc (~> 1.4)
     nokogiri (1.18.10-arm64-darwin)
       racc (~> 1.4)
     octokit (10.0.0)
@@ -361,6 +364,7 @@ GEM
       ast (~> 2.4.1)
       racc
     pg (1.6.2)
+    pg (1.6.2-aarch64-linux)
     pg (1.6.2-arm64-darwin)
     plaid (44.1.0)
       faraday (>= 1.0.1, < 3.0)
@@ -546,6 +550,7 @@ GEM
       railties (>= 7.0.0)
       tailwindcss-ruby (~> 4.0)
     tailwindcss-ruby (4.1.13)
+    tailwindcss-ruby (4.1.13-aarch64-linux-gnu)
     tailwindcss-ruby (4.1.13-arm64-darwin)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
@@ -590,6 +595,7 @@ GEM
     zeitwerk (2.7.3)
 
 PLATFORMS
+  aarch64-linux
   arm64-darwin
 
 DEPENDENCIES
