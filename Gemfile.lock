@@ -90,8 +90,8 @@ GEM
       activesupport
     ast (2.4.3)
     aws-eventstream (1.4.0)
-    aws-partitions (1.1176.0)
-    aws-sdk-core (3.234.0)
+    aws-partitions (1.1177.0)
+    aws-sdk-core (3.235.0)
       aws-eventstream (~> 1, >= 1.3.0)
       aws-partitions (~> 1, >= 1.992.0)
       aws-sigv4 (~> 1.9)
@@ -102,8 +102,8 @@ GEM
     aws-sdk-kms (1.115.0)
       aws-sdk-core (~> 3, >= 3.234.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-s3 (1.177.0)
-      aws-sdk-core (~> 3, >= 3.210.0)
+    aws-sdk-s3 (1.201.0)
+      aws-sdk-core (~> 3, >= 3.234.0)
       aws-sdk-kms (~> 1)
       aws-sigv4 (~> 1.5)
     aws-sigv4 (1.12.1)
@@ -276,7 +276,7 @@ GEM
       actionview (>= 7.0.0)
       activesupport (>= 7.0.0)
     jmespath (1.6.2)
-    json (2.15.1)
+    json (2.15.2)
     jwt (3.1.2)
       base64
     langfuse-ruby (0.1.4)
@@ -310,7 +310,7 @@ GEM
     loofah (2.24.1)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
-    lookbook (2.3.11)
+    lookbook (2.3.13)
       activemodel
       css_parser
       htmlbeautifier (~> 1.3)
@@ -373,7 +373,7 @@ GEM
     octokit (10.0.0)
       faraday (>= 1, < 3)
       sawyer (~> 0.9)
-    openai (0.31.0)
+    openai (0.34.1)
       connection_pool
     ostruct (0.6.3)
     pagy (9.4.0)
@@ -410,8 +410,8 @@ GEM
       nio4r (~> 2.0)
     raabro (1.4.0)
     racc (1.8.1)
-    rack (3.1.18)
-    rack-attack (6.7.0)
+    rack (3.2.3)
+    rack-attack (6.8.0)
       rack (>= 1.0, < 4)
     rack-mini-profiler (4.0.1)
       rack (>= 1.2.0)
@@ -523,12 +523,12 @@ GEM
       ffi (~> 1.12)
       logger
     ruby2_keywords (0.0.5)
-    rubyzip (2.4.1)
+    rubyzip (3.2.1)
     sawyer (0.9.3)
       addressable (>= 2.3.5)
       faraday (>= 0.17.3, < 3)
     securerandom (0.4.1)
-    selenium-webdriver (4.37.0)
+    selenium-webdriver (4.38.0)
       base64 (~> 0.2)
       logger (~> 1.4)
       rexml (~> 3.2, >= 3.2.5)
@@ -606,7 +606,7 @@ GEM
       activemodel (>= 6.0.0)
       bindex (>= 0.4.0)
       railties (>= 6.0.0)
-    webmock (3.25.1)
+    webmock (3.25.2)
       addressable (>= 2.8.0)
       crack (>= 0.3.2)
       hashdiff (>= 0.4.0, < 2.0.0)
@@ -634,7 +634,7 @@ DEPENDENCIES
   aasm
   activerecord-import
   after_commit_everywhere (~> 1.0)
-  aws-sdk-s3 (~> 1.177.0)
+  aws-sdk-s3 (>= 1.177.0)
   bcrypt (~> 3.1)
   benchmark-ips
   bootsnap
@@ -665,11 +665,11 @@ DEPENDENCIES
   langfuse-ruby (~> 0.1.4)
   letter_opener
   logtail-rails
-  lookbook (= 2.3.11)
+  lookbook
   lucide-rails!
   mocha
   octokit
-  openai (~> 0.31.0)
+  openai
   ostruct
   pagy
   pg (~> 1.5)
@@ -686,7 +686,7 @@ DEPENDENCIES
   rqrcode (~> 3.0)
   rubocop-rails-omakase
   ruby-lsp-rails
-  rubyzip (~> 2.3)
+  rubyzip
   selenium-webdriver
   sentry-rails
   sentry-ruby
