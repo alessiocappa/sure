@@ -93,17 +93,13 @@ class Provider::Openai < Provider
       }.compact
 
       if streamer.present?
-        # Proxy that converts raw stream to "LLM Provider concept" stream
         stream_proxy = client.chat.completions.stream(**params)
         stream_proxy.each do |event|
-          case event
-          when OpenAI::Streaming::ChatChunkEvent
-            parsed_chunk = ChatStreamParser.new(event).parsed
-
-            unless parsed_chunk.nil?
-              streamer.call(parsed_chunk)
-              collected_chunks << parsed_chunk
-            end
+          next unless event.is_a?(OpenAI::Streaming::ChatChunkEvent)
+          parsed_chunks = ChatStreamParser.new(event).parsed
+          parsed_chunks.each do |chunk|
+            streamer.call(chunk)
+            collected_chunks << chunk
           end
         end
         response_chunk = collected_chunks.find { |chunk| chunk.type == "response" }
