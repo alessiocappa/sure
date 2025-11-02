@@ -78,6 +78,10 @@ class Provider::Registry
 
         Provider::EnableBanking.new(application_id:, certificate:, country_code:)
       end
+
+      def yahoo_finance
+        Provider::YahooFinance.new
+      end
   end
 
   def initialize(concept)
@@ -103,9 +107,9 @@ class Provider::Registry
     def available_providers
       case concept
       when :exchange_rates
-        %i[twelve_data]
+        %i[twelve_data yahoo_finance]
       when :securities
-        %i[twelve_data]
+        %i[twelve_data yahoo_finance]
       when :llm
         %i[openai]
       else
