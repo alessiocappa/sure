@@ -4,10 +4,8 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
   include LLMInterfaceTest
 
   setup do
-    api_key = ENV.fetch("OPENAI_ACCESS_TOKEN", "test-openai-token")
-    base_url = ENV.fetch("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
-
-    @subject = @openai = Provider::Openai.new(api_key, base_url)
+    @subject = @openai = Provider::Openai.new(ENV.fetch("OPENAI_ACCESS_TOKEN", "test-openai-token"))
+    @subject_model = "gpt-4.1"
   end
 
   test "openai errors are automatically raised" do
@@ -119,7 +117,8 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
   test "basic chat response" do
     VCR.use_cassette("openai/chat/basic_response") do
       response = @subject.chat_response(
-        "This is a chat test.  If it's working, respond with a single word: Yes"
+        "This is a chat test.  If it's working, respond with a single word: Yes",
+        model: @subject_model
       )
 
       assert response.success?
@@ -138,6 +137,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       response = @subject.chat_response(
         "This is a chat test.  If it's working, respond with a single word: Yes",
+        model: @subject_model,
         streamer: mock_streamer
       )
 
@@ -167,6 +167,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       first_response = @subject.chat_response(
         prompt,
+        model: @subject_model,
         instructions: "Use the tools available to you to answer the user's question.",
         functions: functions
       )
@@ -179,6 +180,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       second_response = @subject.chat_response(
         prompt,
+        model: @subject_model,
         function_results: [ {
           call_id: function_request.call_id,
           output: { amount: 10000, currency: "USD" }.to_json
@@ -214,6 +216,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
       # Call #1: First streaming call, will return a function request
       @subject.chat_response(
         prompt,
+        model: @subject_model,
         instructions: "Use the tools available to you to answer the user's question.",
         functions: functions,
         streamer: mock_streamer
@@ -234,6 +237,7 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
       # Call #2: Second streaming call, will return a function result
       @subject.chat_response(
         prompt,
+        model: @subject_model,
         function_results: [
           {
             call_id: function_request.call_id,
@@ -252,5 +256,34 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
 
       assert_includes response_chunks.first.data.messages.first.output_text, "$10,000"
     end
+  end
+
+  test "provider_name returns OpenAI for standard provider" do
+    assert_equal "OpenAI", @subject.provider_name
+  end
+
+  test "provider_name returns custom info for custom provider" do
+    custom_provider = Provider::Openai.new(
+      "test-token",
+      uri_base: "https://custom-api.example.com/v1",
+      model: "custom-model"
+    )
+
+    assert_equal "Custom OpenAI-compatible (https://custom-api.example.com/v1)", custom_provider.provider_name
+  end
+
+  test "supported_models_description returns model prefixes for standard provider" do
+    expected = "models starting with: gpt-4, gpt-5, o1, o3"
+    assert_equal expected, @subject.supported_models_description
+  end
+
+  test "supported_models_description returns configured model for custom provider" do
+    custom_provider = Provider::Openai.new(
+      "test-token",
+      uri_base: "https://custom-api.example.com/v1",
+      model: "custom-model"
+    )
+
+    assert_equal "configured model: custom-model", custom_provider.supported_models_description
   end
 end
