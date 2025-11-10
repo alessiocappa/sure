@@ -453,6 +453,23 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_31_132654) do
     t.index ["token"], name: "index_invite_codes_on_token", unique: true
   end
 
+  create_table "llm_usages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "family_id", null: false
+    t.string "provider", null: false
+    t.string "model", null: false
+    t.string "operation", null: false
+    t.integer "prompt_tokens", default: 0, null: false
+    t.integer "completion_tokens", default: 0, null: false
+    t.integer "total_tokens", default: 0, null: false
+    t.decimal "estimated_cost", precision: 10, scale: 6
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["family_id", "created_at"], name: "index_llm_usages_on_family_id_and_created_at"
+    t.index ["family_id", "operation"], name: "index_llm_usages_on_family_id_and_operation"
+    t.index ["family_id"], name: "index_llm_usages_on_family_id"
+  end
+
   create_table "loans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -957,6 +974,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_31_132654) do
   add_foreign_key "imports", "families"
   add_foreign_key "invitations", "families"
   add_foreign_key "invitations", "users", column: "inviter_id"
+  add_foreign_key "llm_usages", "families"
   add_foreign_key "merchants", "families"
   add_foreign_key "messages", "chats"
   add_foreign_key "mobile_devices", "users"
