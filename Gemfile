@@ -78,7 +78,7 @@ gem "aasm"
 gem "after_commit_everywhere", "~> 1.0"
 
 # AI
-gem "openai"
+gem "ruby-openai"
 gem "langfuse-ruby", "~> 0.1.4", require: "langfuse"
 
 group :development, :test do

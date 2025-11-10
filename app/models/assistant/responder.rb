@@ -1,6 +1,4 @@
 class Assistant::Responder
-  DEFAULT_MODEL = "gpt-4.1"
-
   def initialize(message:, instructions:, function_tool_caller:, llm:)
     @message = message
     @instructions = instructions
@@ -74,29 +72,10 @@ class Assistant::Responder
       )
     end
 
-    def build_message_history
-      chat.messages.order(:created_at).map do |msg|
-        {
-          role: map_type_to_role(msg.type),
-          content: msg.content
-        }
-      end
-    end
-
-    def map_type_to_role(type)
-      case type
-      when "SystemMessage" then "system"
-      when "UserMessage" then "user"
-      when "AssistantMessage" then "assistant"
-      else
-        "user"
-      end
-    end
-
     def get_llm_response(streamer:, function_results: [], previous_response_id: nil)
       response = llm.chat_response(
         message.content,
-        model: nil,
+        model: message.ai_model,
         instructions: instructions,
         functions: function_tool_caller.function_definitions,
         function_results: function_results,
@@ -104,7 +83,7 @@ class Assistant::Responder
         previous_response_id: previous_response_id,
         session_id: chat_session_id,
         user_identifier: chat_user_identifier,
-        previous_messages: build_message_history
+        family: message.chat&.user&.family
       )
 
       unless response.success?

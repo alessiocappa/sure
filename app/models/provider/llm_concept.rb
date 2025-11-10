@@ -20,15 +20,14 @@ module Provider::LlmConcept
 
   def chat_response(
     prompt,
-    model: nil,
+    model:,
     instructions: nil,
     functions: [],
     function_results: [],
     streamer: nil,
     previous_response_id: nil,
     session_id: nil,
-    user_identifier: nil,
-    previous_messages: []
+    user_identifier: nil
   )
     raise NotImplementedError, "Subclasses must implement #chat_response"
   end

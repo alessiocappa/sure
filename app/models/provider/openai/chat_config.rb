@@ -8,12 +8,10 @@ class Provider::Openai::ChatConfig
     functions.map do |fn|
       {
         type: "function",
-        function: {
-          name: fn[:name],
-          description: fn[:description],
-          parameters: fn[:params_schema],
-          strict: fn[:strict]
-        }
+        name: fn[:name],
+        description: fn[:description],
+        parameters: fn[:params_schema],
+        strict: fn[:strict]
       }
     end
   end
@@ -38,11 +36,10 @@ class Provider::Openai::ChatConfig
     end
 
     [
-      *previous_messages,
-      new_user_message,
-      *tool_result_messages
+      { role: "user", content: prompt },
+      *results
     ]
-end
+  end
 
   private
     attr_reader :functions, :function_results
