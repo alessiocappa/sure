@@ -12,23 +12,13 @@ class Provider::Openai::ChatStreamParser
     chunk = object[:chunk]
     return [] if chunk.choices.to_a.empty?
 
-    choice = chunk.choices.first
-    chunks = []
-
-    if choice.delta.content.present?
-      if @buffer.empty?
-        chunks << Chunk.new(type: "output_text", data: choice.delta.content)
-      else
-        @buffer << choice.delta.content
-        if @buffer.length >= BUFFER_THRESHOLD
-          chunks << Chunk.new(type: "output_text", data: flush_buffer)
-        end
-      end
-    end
-
-    if choice.finish_reason
-      chunks << Chunk.new(type: "output_text", data: flush_buffer) unless @buffer.empty?
-      chunks << Chunk.new(type: "response", data: parse_response(object.snapshot))
+    case type
+    when "response.output_text.delta", "response.refusal.delta"
+      Chunk.new(type: "output_text", data: object.dig("delta"), usage: nil)
+    when "response.completed"
+      raw_response = object.dig("response")
+      usage = raw_response.dig("usage")
+      Chunk.new(type: "response", data: parse_response(raw_response), usage: usage)
     end
 
     chunks

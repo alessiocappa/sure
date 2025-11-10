@@ -61,13 +61,19 @@ class Provider::Registry
       end
 
       def openai
-        access_token = ENV.fetch("OPENAI_ACCESS_TOKEN", Setting.openai_access_token)
-        base_url = ENV.fetch("OPENAI_BASE_URL", Setting.openai_base_url)
-        model = ENV.fetch("OPENAI_MODEL", Setting.openai_model)
+        access_token = ENV["OPENAI_ACCESS_TOKEN"].presence || Setting.openai_access_token
 
         return nil unless access_token.present?
-        Rails.logger.info("Configuring OpenAI Provider with access token: #{access_token}, model: #{model}, base_url: #{base_url.present? ? base_url : 'default'}")
-        Provider::Openai.new(access_token, base_url, model)
+
+        uri_base = ENV["OPENAI_URI_BASE"].presence || Setting.openai_uri_base
+        model = ENV["OPENAI_MODEL"].presence || Setting.openai_model
+
+        if uri_base.present? && model.blank?
+          Rails.logger.error("Custom OpenAI provider configured without a model; please set OPENAI_MODEL or Setting.openai_model")
+          return nil
+        end
+
+        Provider::Openai.new(access_token, uri_base: uri_base, model: model)
       end
 
       def enable_banking

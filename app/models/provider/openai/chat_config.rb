@@ -18,14 +18,22 @@ class Provider::Openai::ChatConfig
     end
   end
 
-  def build_input(prompt, previous_messages: [])
-    new_user_message = { role: "user", content: prompt }
+  def build_input(prompt)
+    results = function_results.map do |fn_result|
+      # Handle nil explicitly to avoid serializing to "null"
+      output = fn_result[:output]
+      serialized_output = if output.nil?
+        ""
+      elsif output.is_a?(String)
+        output
+      else
+        output.to_json
+      end
 
-    tool_result_messages = function_results.map do |fn_result|
       {
-        role: "tool",
-        tool_call_id: fn_result[:call_id],
-        content: fn_result[:output].to_json
+        type: "function_call_output",
+        call_id: fn_result[:call_id],
+        output: serialized_output
       }
     end
 
