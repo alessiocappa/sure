@@ -66,6 +66,7 @@ class Provider::Registry
         model = ENV.fetch("OPENAI_MODEL", Setting.openai_model)
 
         return nil unless access_token.present?
+        Rails.logger.info("Configuring OpenAI Provider with access token: #{access_token}, model: #{model}, base_url: #{base_url.present? ? base_url : 'default'}")
         Provider::Openai.new(access_token, base_url, model)
       end
 
