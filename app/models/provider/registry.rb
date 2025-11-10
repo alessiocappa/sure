@@ -33,7 +33,7 @@ class Provider::Registry
       end
 
       def twelve_data
-        api_key = ENV.fetch("TWELVE_DATA_API_KEY", Setting.twelve_data_api_key)
+        api_key = ENV["TWELVE_DATA_API_KEY"].presence || Setting.twelve_data_api_key
 
         return nil unless api_key.present?
 
@@ -97,7 +97,7 @@ class Provider::Registry
   end
 
   def providers
-    available_providers.map { |p| self.class.send(p) }
+    available_providers.map { |p| self.class.send(p) }.compact
   end
 
   def get_provider(name)
