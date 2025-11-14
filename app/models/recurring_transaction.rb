@@ -2,7 +2,7 @@ class RecurringTransaction < ApplicationRecord
   include Monetizable
 
   belongs_to :family
-  belongs_to :merchant
+  belongs_to :merchant, optional: true
 
   monetize :amount
   monetize :expected_amount_min, allow_nil: true
@@ -289,6 +289,7 @@ class RecurringTransaction < ApplicationRecord
       amount: display_amount,
       currency: currency,
       merchant: merchant,
+      name: merchant.present? ? merchant.name : name,
       recurring: true,
       projected: true,
       amount_min: expected_amount_min,
