@@ -22,7 +22,7 @@
             <div class="hidden lg:flex">
               <% if transaction.merchant&.logo_url.present? %>
                 <%= image_tag transaction.merchant.logo_url,
-                    class: "w-9 h-9 rounded-full",
+                    class: "w-9 h-9 rounded-full border-1 border-secondary",
                     loading: "lazy" %>
               <% else %>
                 <div class="hidden lg:flex">
