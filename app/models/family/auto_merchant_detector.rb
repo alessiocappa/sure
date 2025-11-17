@@ -38,7 +38,7 @@ class Family::AutoMerchantDetector
           name: auto_detection.business_name,
           website_url: auto_detection.business_url,
         ) do |pm|
-          pm.logo_url = "#{default_logo_provider_url}/#{normalize_domain(auto_detection.business_url)}/icon/fallback/lettermark/w/40/h/40?c=#{Setting.brand_fetch_client_id}"
+          pm.logo_url = "#{default_logo_provider_url}/#{auto_detection.business_url}/icon/fallback/lettermark/w/40/h/40?c=#{Setting.brand_fetch_client_id}"
         end
       end
 
@@ -68,27 +68,6 @@ class Family::AutoMerchantDetector
 
     def default_logo_provider_url
       "https://cdn.brandfetch.io"
-    end
-
-    def normalize_domain(url)
-      return nil if url.nil? || url.strip.empty?
-
-      cleaned = url.downcase.strip
-      cleaned = cleaned.gsub(%r{^(https?:)?\/+}, "")
-      cleaned = cleaned.gsub(/^www\./, "")
-      cleaned = cleaned.gsub(/\/+$/, "")
-
-      # Extract main domain only
-      domain_parts = cleaned.split(".")
-
-      if domain_parts.length >= 2
-        core = domain_parts[-2]
-      else
-        core = domain_parts.first
-      end
-
-      # Force domain to .com to ensure that a match is find in the logo provider
-      "#{core}.com"
     end
 
     def user_merchants_input
