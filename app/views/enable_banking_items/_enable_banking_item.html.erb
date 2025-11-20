@@ -75,6 +75,15 @@
         <%= render DS::Menu.new do |menu| %>
           <% menu.with_item(
             variant: "button",
+            text: t(".update"),
+            icon: "refresh-cw",
+            href: update_connection_enable_banking_item_path(enable_banking_item),
+            method: :post,
+            data: { turbo: false }
+          ) %>
+           
+          <% menu.with_item(
+            variant: "button",
             text: t(".delete"),
             icon: "trash-2",
             href: enable_banking_item_path(enable_banking_item),
