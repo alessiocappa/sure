@@ -40,8 +40,9 @@ class EnableBankingItem::Importer
 
       accounts.each do |raw_account|
         account_id = raw_account["uid"]
+        identification_hash = raw_account["identification_hash"]
         enable_banking_account = enable_banking_item.enable_banking_accounts.find_or_initialize_by(
-          account_id: account_id
+          identification_hash: identification_hash
         )
 
         account_details = enable_banking_provider.get_account_details(account_id)
