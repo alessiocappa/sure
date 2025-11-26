@@ -261,9 +261,10 @@ class EnableBankingItem < ApplicationRecord
 
       accounts_data.each do |account_data|
         uid = account_data[:uid]
+        identification_hash = account_data[:identification_hash]
         next unless uid.present?
 
-        enable_banking_account = enable_banking_accounts.find_or_initialize_by(uid: uid)
+        enable_banking_account = enable_banking_accounts.find_or_initialize_by(identification_hash: identification_hash)
         enable_banking_account.upsert_enable_banking_snapshot!(account_data)
         enable_banking_account.save!
       end

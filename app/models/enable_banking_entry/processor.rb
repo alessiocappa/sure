@@ -28,6 +28,7 @@ class EnableBankingEntry::Processor
         currency: currency,
         date: date,
         name: name,
+        notes: notes,
         source: "enable_banking",
         merchant: merchant
       )
@@ -67,23 +68,11 @@ class EnableBankingEntry::Processor
     end
 
     def name
-      # Build name from available Enable Banking transaction fields
-      creditor = data[:creditor_name]
-      debtor = data[:debtor_name]
-      remittance = data[:remittance_information]&.first
+      data.dig("bank_transaction_code", "description") || data.dig("remittance_information")&.first
+    end
 
-      # Determine counterparty based on transaction direction
-      counterparty = if amount_value.negative?
-        creditor.presence || "Unknown Recipient"
-      else
-        debtor.presence || "Unknown Sender"
-      end
-
-      if remittance.present? && counterparty != remittance
-        "#{counterparty} - #{remittance.truncate(100)}"
-      else
-        counterparty
-      end
+    def notes
+      Array(data.dig("remittance_information")).join(" ")
     end
 
     def merchant
