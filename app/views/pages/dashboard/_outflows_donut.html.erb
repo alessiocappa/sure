@@ -2,7 +2,7 @@
 <div id="outflows-donut-section">
   <div class="flex justify-between items-center gap-4 px-4 mb-4">
     <h2 class="text-lg font-medium inline-flex items-center gap-1.5">
-      Outflows
+      <%= t("pages.dashboard.outflows_donut.title") %>
     </h2>
 
     <%= form_with url: root_path, method: :get, data: { controller: "auto-submit-form", turbo_frame: "_top" } do |form| %>
@@ -33,11 +33,11 @@
           <div data-donut-chart-target="contentContainer" class="flex justify-center items-center h-full">
             <div data-donut-chart-target="defaultContent" class="flex flex-col items-center">
               <div class="text-secondary text-sm mb-2">
-                <span>Total Outflows</span>
+                <span><%= t("pages.dashboard.outflows_donut.total_outflows") %></span>
               </div>
 
               <div class="text-3xl font-medium text-primary">
-                <%= format_money(outflows_data[:total]) %>
+                <%= outflows_data[:currency_symbol] %><%= number_with_delimiter(outflows_data[:total], delimiter: ",") %>
               </div>
             </div>
 
@@ -47,7 +47,7 @@
                   <p class="text-sm text-secondary"><%= category[:name] %></p>
 
                   <p class="text-3xl font-medium text-primary">
-                    <%= format_money(category[:amount]) %>
+                    <%= outflows_data[:currency_symbol] %><%= number_with_delimiter(category[:amount], delimiter: ",") %>
                   </p>
 
                   <p class="text-sm text-secondary"><%= category[:percentage] %>%</p>
@@ -88,7 +88,7 @@
                 <span class="text-sm font-medium text-primary truncate"><%= category[:name] %></span>
               </div>
               <div class="flex items-center gap-4 flex-shrink-0">
-                <span class="text-sm font-medium text-primary whitespace-nowrap"><%= format_money(category[:amount]) %></span>
+                <span class="text-sm font-medium text-primary whitespace-nowrap"><%= outflows_data[:currency_symbol] %><%= number_with_delimiter(category[:amount], delimiter: ",") %></span>
                 <span class="text-sm text-secondary whitespace-nowrap"><%= category[:percentage] %>%</span>
               </div>
             <% end %>

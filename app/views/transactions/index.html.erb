@@ -57,6 +57,7 @@
     </div>
 
     <% if @pagy.count > 0 || (@projected_recurring.any? && @q.blank?) %>
+    <% if @pagy.count > 0 || (@projected_recurring.any? && @q.blank?) %>
       <div class="grow overflow-y-auto">
         <div class="space-y-6">
           <% if @projected_recurring.any? && @q.blank? %>

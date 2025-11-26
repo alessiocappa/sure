@@ -21,6 +21,8 @@ class Sync < ApplicationRecord
 
   after_commit :update_family_sync_timestamp
 
+  serialize :sync_stats, coder: JSON
+
   validate :window_valid
 
   # Sync state machine
@@ -62,6 +64,24 @@ class Sync < ApplicationRecord
       # This can happen on server restarts or if Sidekiq enqueues a duplicate job
       unless may_start?
         Rails.logger.warn("Sync #{id} is not in a valid state (#{aasm.from_state}) to start.  Skipping sync.")
+        return
+      end
+
+      # Guard: syncable may have been deleted while job was queued
+      unless syncable.present?
+        Rails.logger.warn("Sync #{id} - syncable #{syncable_type}##{syncable_id} no longer exists. Marking as failed.")
+        start! if may_start?
+        fail!
+        update(error: "Syncable record was deleted")
+        return
+      end
+
+      # Guard: syncable may be scheduled for deletion
+      if syncable.respond_to?(:scheduled_for_deletion?) && syncable.scheduled_for_deletion?
+        Rails.logger.warn("Sync #{id} - syncable #{syncable_type}##{syncable_id} is scheduled for deletion. Skipping sync.")
+        start! if may_start?
+        fail!
+        update(error: "Syncable record is scheduled for deletion")
         return
       end
 

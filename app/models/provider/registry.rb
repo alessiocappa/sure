@@ -41,6 +41,7 @@ class Provider::Registry
       end
 
       def plaid_us
+        Provider::PlaidAdapter.ensure_configuration_loaded
         config = Rails.application.config.plaid
 
         return nil unless config.present?
@@ -49,6 +50,7 @@ class Provider::Registry
       end
 
       def plaid_eu
+        Provider::PlaidEuAdapter.ensure_configuration_loaded
         config = Rails.application.config.plaid_eu
 
         return nil unless config.present?
@@ -74,16 +76,6 @@ class Provider::Registry
         end
 
         Provider::Openai.new(access_token, uri_base: uri_base, model: model)
-      end
-
-      def enable_banking
-        application_id = ENV["ENABLE_BANKING_APPLICATION_ID"].presence || Setting.enable_banking_application_id
-        country_code = ENV["ENABLE_BANKING_COUNTRY"].presence || Setting.enable_banking_country
-        certificate = ENV["ENABLE_BANKING_CERTIFICATE"].presence || Setting.enable_banking_certificate
-
-        return nil unless application_id.present? && certificate.present? && country_code.present?
-
-        Provider::EnableBanking.new(application_id:, certificate:, country_code:)
       end
 
       def yahoo_finance

@@ -1,192 +1,242 @@
-class Provider::EnableBanking < Provider
-  # Subclass so errors caught in this provider are raised as Provider::EnableBanking::Error
-  Error = Class.new(Provider::Error)
+require "cgi"
 
-  def initialize(application_id:, certificate:, country_code:)
+class Provider::EnableBanking
+  include HTTParty
+
+  BASE_URL = "https://api.enablebanking.com".freeze
+
+  headers "User-Agent" => "Sure Finance Enable Banking Client"
+  default_options.merge!(verify: true, ssl_verify_mode: OpenSSL::SSL::VERIFY_PEER, timeout: 120)
+
+  attr_reader :application_id, :private_key
+
+  def initialize(application_id:, client_certificate:)
     @application_id = application_id
-    @certificate = certificate
-    @country_code = country_code
+    @private_key = extract_private_key(client_certificate)
   end
 
-  def get_redirect_urls
-    result = with_provider_response do
-      response = client.get("#{base_url}/application")
-      JSON.parse(response.body).dig("redirect_urls")
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not fetch redirect URLs. Provider error: #{result.error.message}")
-      raise result.error
-    end
+  # Get list of available ASPSPs (banks) for a country
+  # @param country [String] ISO 3166-1 alpha-2 country code (e.g., "GB", "DE", "FR")
+  # @return [Array<Hash>] List of ASPSPs
+  def get_aspsps(country:)
+    response = self.class.get(
+      "#{BASE_URL}/aspsps",
+      headers: auth_headers,
+      query: { country: country }
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during GET request: #{e.message}", :request_failed)
   end
 
-  def get_available_aspsps(country_code: @country_code)
-    result = with_provider_response do
-      response = client.get("#{base_url}/aspsps") do |req|
-        req.params["country"] = country_code
-        req.params["psu_type"] = "personal" # Do not retrieve business accounts
-      end
-      JSON.parse(response.body).dig("aspsps")
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not fetch available ASPSPS for country #{country_code}. Provider error: #{result.error.message}")
-      raise result.error
-    end
+  # Initiate authorization flow - returns a redirect URL for the user
+  # @param aspsp_name [String] Name of the ASPSP from get_aspsps
+  # @param aspsp_country [String] Country code for the ASPSP
+  # @param redirect_url [String] URL to redirect user back to after auth
+  # @param state [String] Optional state parameter to pass through
+  # @param psu_type [String] "personal" or "business"
+  # @return [Hash] Contains :url and :authorization_id
+  def start_authorization(aspsp_name:, aspsp_country:, redirect_url:, state: nil, psu_type: "personal")
+    body = {
+      access: {
+        valid_until: (Time.current + 90.days).iso8601
+      },
+      aspsp: {
+        name: aspsp_name,
+        country: aspsp_country
+      },
+      state: state,
+      redirect_url: redirect_url,
+      psu_type: psu_type
+    }.compact
+
+    response = self.class.post(
+      "#{BASE_URL}/auth",
+      headers: auth_headers.merge("Content-Type" => "application/json"),
+      body: body.to_json
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during POST request: #{e.message}", :request_failed)
   end
 
-  def generate_authorization_url(aspsp_name, country_code, enable_banking_id)
-    country_code ||= @country_code
-    redirect_urls = get_redirect_urls
-    redirect_url = redirect_urls&.first
-    raise Error.new("No redirect URL configured") if redirect_url.blank?
-    valid_until = Time.current + 90.days
-    result = with_provider_response do
-      body = {
-        access: { valid_until: valid_until.utc.iso8601 },
-        aspsp: { name: aspsp_name, country: country_code },
-        state: enable_banking_id || SecureRandom.uuid,
-        redirect_url: redirect_url
-      }
-      response = client.post("#{base_url}/auth", body.to_json)
-      JSON.parse(response.body).dig("url")
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not generate authorization URL. Provider error: #{result.error.message}")
-      raise result.error
-    end
-  end
-
-  def create_session(auth_code)
-    result = with_provider_response do
-      body = { code: auth_code }
-      response = client.post("#{base_url}/sessions", body.to_json)
-      JSON.parse(response.body)
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not create session. Provider error: #{result.error.message}")
-      raise result.error
-    end
-  end
-
-  def get_account_details(account_id)
-    result = with_provider_response do
-      response = client.get("#{base_url}/accounts/#{account_id}/details")
-      JSON.parse(response.body)
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not fetch account details. Provider error: #{result.error.message}")
-      raise result.error
-    end
-  end
-
-  def get_account_balances(account_id)
-    result = with_provider_response do
-      response = client.get("#{base_url}/accounts/#{account_id}/balances")
-      JSON.parse(response.body).dig("balances")
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not fetch account balances. Provider error: #{result.error.message}")
-      raise result.error
-    end
-  end
-
-  def get_current_available_balance(account_id)
-    balances = get_account_balances(account_id)
-    balances = [] if balances.nil?
-    balances_by_type = balances.group_by { |balance| balance["balance_type"] }
-    available_balance = balances_by_type["ITAV"]&.first || balances_by_type["CLAV"]&.first
-    current_balance = balances_by_type["ITBD"]&.first || balances_by_type["CLBD"]&.first
-    {
-      "available" => available_balance&.dig("balance_amount", "amount") || 0,
-      "current" => current_balance&.dig("balance_amount", "amount") || 0
+  # Exchange authorization code for a session
+  # @param code [String] The authorization code from the callback
+  # @return [Hash] Contains :session_id and :accounts
+  def create_session(code:)
+    body = {
+      code: code
     }
+
+    response = self.class.post(
+      "#{BASE_URL}/sessions",
+      headers: auth_headers.merge("Content-Type" => "application/json"),
+      body: body.to_json
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during POST request: #{e.message}", :request_failed)
   end
 
-  def get_account_transactions(account_id, fetch_all, continuation_key: nil)
-    result = with_provider_response do
-      response = client.get("#{base_url}/accounts/#{account_id}/transactions") do |req|
-        if !fetch_all
-          req.params["date_from"] = 7.days.ago.to_date.iso8601
-        else
-          req.params["strategy"] = "longest"
-        end
-        if continuation_key
-          req.params["continuation_key"] = continuation_key
-        end
-        req.params["transaction_status"] = "BOOK"
-      end
-      JSON.parse(response.body)
-    end
-    if result.success?
-      result.data
-    else
-      Rails.logger.warn("Could not fetch account transactions. Provider error: #{result.error.message}")
-      raise result.error
-    end
+  # Get session information
+  # @param session_id [String] The session ID
+  # @return [Hash] Session info including accounts
+  def get_session(session_id:)
+    response = self.class.get(
+      "#{BASE_URL}/sessions/#{session_id}",
+      headers: auth_headers
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during GET request: #{e.message}", :request_failed)
   end
 
-  def get_transactions(account_id, fetch_all)
-    transactions = []
-    continuation_key = nil
-    loop do
-      transaction_data = get_account_transactions(account_id, fetch_all, continuation_key: continuation_key)
-      transactions.concat(transaction_data["transactions"] || [])
-      continuation_key = transaction_data["continuation_key"]
-      break if continuation_key.blank?
-    end
-    transactions
+  # Delete a session (revoke consent)
+  # @param session_id [String] The session ID
+  def delete_session(session_id:)
+    response = self.class.delete(
+      "#{BASE_URL}/sessions/#{session_id}",
+      headers: auth_headers
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during DELETE request: #{e.message}", :request_failed)
+  end
+
+  # Get account details
+  # @param account_id [String] The account ID (UID from Enable Banking)
+  # @return [Hash] Account details
+  def get_account_details(account_id:)
+    encoded_id = CGI.escape(account_id.to_s)
+    response = self.class.get(
+      "#{BASE_URL}/accounts/#{encoded_id}/details",
+      headers: auth_headers
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during GET request: #{e.message}", :request_failed)
+  end
+
+  # Get account balances
+  # @param account_id [String] The account ID (UID from Enable Banking)
+  # @return [Hash] Balance information
+  def get_account_balances(account_id:)
+    encoded_id = CGI.escape(account_id.to_s)
+    response = self.class.get(
+      "#{BASE_URL}/accounts/#{encoded_id}/balances",
+      headers: auth_headers
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during GET request: #{e.message}", :request_failed)
+  end
+
+  # Get account transactions
+  # @param account_id [String] The account ID (UID from Enable Banking)
+  # @param date_from [Date, nil] Start date for transactions
+  # @param date_to [Date, nil] End date for transactions
+  # @param continuation_key [String, nil] For pagination
+  # @return [Hash] Transactions and continuation_key for pagination
+  def get_account_transactions(account_id:, date_from: nil, date_to: nil, continuation_key: nil)
+    encoded_id = CGI.escape(account_id.to_s)
+    query_params = {}
+    query_params[:date_from] = date_from.to_date.iso8601 if date_from
+    query_params[:date_to] = date_to.to_date.iso8601 if date_to
+    query_params[:continuation_key] = continuation_key if continuation_key
+
+    response = self.class.get(
+      "#{BASE_URL}/accounts/#{encoded_id}/transactions",
+      headers: auth_headers,
+      query: query_params.presence
+    )
+
+    handle_response(response)
+  rescue SocketError, Net::OpenTimeout, Net::ReadTimeout => e
+    raise EnableBankingError.new("Exception during GET request: #{e.message}", :request_failed)
   end
 
   private
-    attr_reader :application_id
-    attr_reader :certificate
 
-    def base_url
-      "https://api.enablebanking.com"
+    def extract_private_key(certificate_pem)
+      # Extract private key from PEM certificate
+      OpenSSL::PKey::RSA.new(certificate_pem)
+    rescue OpenSSL::PKey::RSAError => e
+      Rails.logger.error "Enable Banking: Failed to parse private key: #{e.message}"
+      raise EnableBankingError.new("Invalid private key in certificate: #{e.message}", :invalid_certificate)
     end
 
     def generate_jwt
-      rsa_key = OpenSSL::PKey::RSA.new(certificate.gsub("\\n", "\n"))
-      iat = Time.now.to_i
-      exp = iat + 3600
-      jwt_header = { typ: "JWT", alg: "RS256", kid: application_id }
-      jwt_body = { iss: "enablebanking.com", aud: "api.enablebanking.com", iat: iat, exp: exp }
-      token = JWT.encode(jwt_body, rsa_key, "RS256", jwt_header)
-      @jwt_expires_at = Time.at(exp)
-      token
+      now = Time.current.to_i
+
+      header = {
+        typ: "JWT",
+        alg: "RS256",
+        kid: application_id
+      }
+
+      payload = {
+        iss: "enablebanking.com",
+        aud: "api.enablebanking.com",
+        iat: now,
+        exp: now + 3600  # 1 hour expiry
+      }
+
+      # Encode JWT
+      JWT.encode(payload, private_key, "RS256", header)
     end
 
-    def jwt
-      if @jwt.nil? || Time.current >= (@jwt_expires_at - 60.seconds)
-        @jwt = generate_jwt
+    def auth_headers
+      {
+        "Authorization" => "Bearer #{generate_jwt}",
+        "Accept" => "application/json"
+      }
+    end
+
+    def handle_response(response)
+      case response.code
+      when 200, 201
+        parse_response_body(response)
+      when 204
+        {}
+      when 400
+        raise EnableBankingError.new("Bad request to Enable Banking API: #{response.body}", :bad_request)
+      when 401
+        raise EnableBankingError.new("Invalid credentials or expired JWT", :unauthorized)
+      when 403
+        raise EnableBankingError.new("Access forbidden - check your application permissions", :access_forbidden)
+      when 404
+        raise EnableBankingError.new("Resource not found", :not_found)
+      when 422
+        raise EnableBankingError.new("Validation error from Enable Banking API: #{response.body}", :validation_error)
+      when 429
+        raise EnableBankingError.new("Rate limit exceeded. Please try again later.", :rate_limited)
+      else
+        raise EnableBankingError.new("Failed to fetch data: #{response.code} #{response.message} - #{response.body}", :fetch_failed)
       end
-      @jwt
     end
 
-    def client
-      @client ||= Faraday.new(url: base_url) do |faraday|
-        faraday.request(:retry, {
-          max: 2,
-          interval: 0.05,
-          interval_randomness: 0.5,
-          backoff_factor: 2
-        })
+    def parse_response_body(response)
+      return {} if response.body.blank?
 
-        faraday.request :json
-        faraday.response :raise_error
-        faraday.headers["Content-Type"] = "application/json"
-        faraday.request :authorization, "Bearer", -> { jwt }
+      JSON.parse(response.body, symbolize_names: true)
+    rescue JSON::ParserError => e
+      Rails.logger.error "Enable Banking API: Failed to parse response: #{e.message}"
+      raise EnableBankingError.new("Failed to parse API response", :parse_error)
+    end
+
+    class EnableBankingError < StandardError
+      attr_reader :error_type
+
+      def initialize(message, error_type = :unknown)
+        super(message)
+        @error_type = error_type
       end
     end
 end

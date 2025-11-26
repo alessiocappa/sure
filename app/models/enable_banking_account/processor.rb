@@ -1,5 +1,5 @@
 class EnableBankingAccount::Processor
-  include EnableBankingAccount::TypeMappable
+  include CurrencyNormalizable
 
   attr_reader :enable_banking_account
 
@@ -7,82 +7,63 @@ class EnableBankingAccount::Processor
     @enable_banking_account = enable_banking_account
   end
 
-  # Each step represents a different Enable Banking API endpoint
-  #
-  # Processing the account is the first step and if it fails, we halt the entire processor
-  # Each subsequent step can fail independently, but we continue processing the rest of the steps
   def process
-    process_account!
+    unless enable_banking_account.current_account.present?
+      Rails.logger.info "EnableBankingAccount::Processor - No linked account for enable_banking_account #{enable_banking_account.id}, skipping processing"
+      return
+    end
+
+    Rails.logger.info "EnableBankingAccount::Processor - Processing enable_banking_account #{enable_banking_account.id} (uid #{enable_banking_account.uid})"
+
+    begin
+      process_account!
+    rescue StandardError => e
+      Rails.logger.error "EnableBankingAccount::Processor - Failed to process account #{enable_banking_account.id}: #{e.message}"
+      Rails.logger.error "Backtrace: #{e.backtrace.join("\n")}"
+      report_exception(e, "account")
+      raise
+    end
+
     process_transactions
   end
 
   private
-    def family
-      enable_banking_account.enable_banking_item.family
-    end
 
     def process_account!
-      EnableBankingAccount.transaction do
-        account = family.accounts.find_or_initialize_by(
-          enable_banking_account_id: enable_banking_account.id
-        )
-
-        # Create or assign the accountable if needed
-        if account.accountable.nil?
-          accountable = map_accountable(enable_banking_account.account_type)
-          account.accountable = accountable
-        end
-
-        # Name and subtype are the attributes a user can override for Plaid accounts
-        # Use enrichable pattern to respect locked attributes
-        account.enrich_attributes(
-          {
-            name: enable_banking_account.name
-          },
-          source: "enable_banking"
-        )
-
-        account.assign_attributes(
-          balance: balance_calculator.balance,
-          currency: enable_banking_account.currency,
-          cash_balance: balance_calculator.cash_balance
-        )
-
-        account.save!
-
-        # Create or update the current balance anchor valuation for event-sourced ledger
-        account.set_current_balance(balance_calculator.balance)
+      if enable_banking_account.current_account.blank?
+        Rails.logger.error("Enable Banking account #{enable_banking_account.id} has no associated Account")
+        return
       end
-    end
 
-    def process_transactions
-      return unless enable_banking_account.raw_transactions_payload.present?
+      account = enable_banking_account.current_account
+      balance = enable_banking_account.current_balance || 0
 
-      transactions_data = enable_banking_account.raw_transactions_payload
-      transactions_data&.each do |transaction|
-        begin
-          EnableBankingEntry::Processor.new(
-            transaction,
-            enable_banking_account: enable_banking_account
-          ).process
-        rescue => e
-          report_exception(e)
-        end
+      # For liability accounts, ensure positive balances
+      if account.accountable_type == "CreditCard" || account.accountable_type == "Loan"
+        balance = -balance
       end
-    end
 
-    def balance_calculator
-      balance = enable_banking_account.current_balance || enable_banking_account.available_balance || 0
-      # We don't currently distinguish "cash" vs. "non-cash" balances for non-investment accounts.
-      OpenStruct.new(
-          balance: balance,
-          cash_balance: balance
+      currency = parse_currency(enable_banking_account.currency) || account.currency || "EUR"
+
+      account.update!(
+        balance: balance,
+        cash_balance: balance,
+        currency: currency
       )
     end
 
-    def report_exception(error)
+    def process_transactions
+      EnableBankingAccount::Transactions::Processor.new(enable_banking_account).process
+    rescue => e
+      report_exception(e, "transactions")
+    end
+
+    def report_exception(error, context)
       Sentry.capture_exception(error) do |scope|
-        scope.set_tags(enable_banking_account_id: enable_banking_account.id)
+        scope.set_tags(
+          enable_banking_account_id: enable_banking_account.id,
+          context: context
+        )
       end
     end
 end

@@ -11,7 +11,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
     def sign_in(user)
       visit new_session_path
-      within "form" do
+      within %(form[action='#{sessions_path}']) do
         fill_in "Email", with: user.email
         fill_in "Password", with: user_password_test
         click_on "Log in"
@@ -30,7 +30,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
       click_button "Logout"
 
       # Trigger Capybara's wait mechanism to avoid timing issues with logout
-      find("h2", text: "Sign in to your account")
+      find("a", text: "Sign in")
     end
 
     def within_testid(testid)

@@ -1,54 +1,49 @@
 <%# locals: (enable_banking_item:) %>
-<% if params[:redirect_uri] %>
-  <meta name="turbo-visit-control" content="reload">
-<% end %>
+
 <%= tag.div id: dom_id(enable_banking_item) do %>
   <details open class="group bg-container p-4 shadow-border-xs rounded-xl">
     <summary class="flex items-center justify-between gap-2 focus-visible:outline-hidden">
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2">
+        <%= icon "chevron-right", class: "group-open:transform group-open:rotate-90" %>
 
-        <% if enable_banking_item.logo_url? %>
-          <div class="flex items-center justify-center w-16 overflow-hidden">
-            <%= image_tag enable_banking_item.logo_url, class: "shrink-0", loading: "lazy" %>
-          </div>
-        <% else %>
-          <%= render DS::FilledIcon.new(
-            variant: :container,
-            text: enable_banking_item.name.first.upcase,
-            size: "md"
-          ) %>
-        <% end %>
+        <div class="flex items-center justify-center h-8 w-8 bg-success/10 rounded-full">
+          <% if enable_banking_item.logo.attached? %>
+            <%= image_tag enable_banking_item.logo, class: "rounded-full h-full w-full", loading: "lazy" %>
+          <% else %>
+            <div class="flex items-center justify-center">
+              <%= tag.p enable_banking_item.institution_display_name.first.upcase, class: "text-success text-xs font-medium" %>
+            </div>
+          <% end %>
+        </div>
 
         <div class="pl-1 text-sm">
           <div class="flex items-center gap-2">
-            <div>
-              <%= tag.p enable_banking_item.name, class: "font-medium text-primary" %>
-              <% if enable_banking_item.is_session_valid? %>
-                <p class="text-secondary text-xs mb-1"><%= t(".session_expiration", timestamp: distance_of_time_in_words(Time.now, enable_banking_item.valid_until)) %></p>
-              <% end %>
-            </div>
+            <%= tag.p enable_banking_item.institution_display_name, class: "font-medium text-primary" %>
             <% if enable_banking_item.scheduled_for_deletion? %>
-              <p class="text-destructive text-sm animate-pulse"><%= t(".deletion_in_progress") %></p>
+              <p class="text-destructive text-sm animate-pulse">Deletion in progress</p>
             <% end %>
           </div>
+          <p class="text-xs text-secondary">Enable Banking</p>
           <% if enable_banking_item.syncing? %>
             <div class="text-secondary flex items-center gap-1">
               <%= icon "loader", size: "sm", class: "animate-spin" %>
-              <%= tag.span t(".syncing") %>
+              <%= tag.span "Syncing..." %>
             </div>
-          <% elsif !enable_banking_item.is_session_valid? %>
+          <% elsif enable_banking_item.requires_update? %>
             <div class="text-warning flex items-center gap-1">
               <%= icon "alert-triangle", size: "sm", color: "warning" %>
-              <%= tag.span t(".requires_update") %>
-            </div>
-          <% elsif enable_banking_item.sync_error.present? %>
-            <div class="text-secondary flex items-center gap-1">
-              <%= render DS::Tooltip.new(text: enable_banking_item.sync_error, icon: "alert-circle", size: "sm", color: "destructive") %>
-              <%= tag.span t(".error"), class: "text-destructive" %>
+              <%= tag.span "Re-authorization required" %>
             </div>
           <% else %>
             <p class="text-secondary">
-              <%= enable_banking_item.last_synced_at ? t(".status", timestamp: time_ago_in_words(enable_banking_item.last_synced_at)) : t(".status_never") %>
+              <% if enable_banking_item.last_synced_at %>
+                Last synced <%= time_ago_in_words(enable_banking_item.last_synced_at) %> ago
+                <% if enable_banking_item.sync_status_summary %>
+                  · <%= enable_banking_item.sync_status_summary %>
+                <% end %>
+              <% else %>
+                Never synced
+              <% end %>
             </p>
           <% end %>
         </div>
@@ -56,14 +51,13 @@
 
       <div class="flex items-center gap-2">
         <% if enable_banking_item.requires_update? %>
-          <%= render DS::Button.new(
-            text: t(".update"),
-            icon: "refresh-cw",
-            variant: "secondary",
-            href: update_connection_enable_banking_item_path(enable_banking_item),
-            method: :post,
-            data: { turbo: false }
-          ) %>
+          <%= button_to reauthorize_enable_banking_item_path(enable_banking_item),
+                        method: :post,
+                        class: "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg text-white bg-warning hover:opacity-90 transition-colors",
+                        data: { turbo: false } do %>
+            <%= icon "refresh-cw", size: "sm" %>
+            Re-authorize
+          <% end %>
         <% elsif Rails.env.development? %>
           <%= icon(
             "refresh-cw",
@@ -75,23 +69,47 @@
         <%= render DS::Menu.new do |menu| %>
           <% menu.with_item(
             variant: "button",
-            text: t(".update"),
-            icon: "refresh-cw",
-            href: update_connection_enable_banking_item_path(enable_banking_item),
-            method: :post,
-            data: { turbo: false }
-          ) %>
-           
-          <% menu.with_item(
-            variant: "button",
-            text: t(".delete"),
+            text: "Delete",
             icon: "trash-2",
             href: enable_banking_item_path(enable_banking_item),
             method: :delete,
-            confirm: CustomConfirm.for_resource_deletion(t(".connection"), high_severity: true)
+            confirm: CustomConfirm.for_resource_deletion(enable_banking_item.institution_display_name, high_severity: true)
           ) %>
         <% end %>
       </div>
     </summary>
+
+    <% unless enable_banking_item.scheduled_for_deletion? %>
+      <div class="space-y-4 mt-4">
+        <% if enable_banking_item.accounts.any? %>
+          <%= render "accounts/index/account_groups", accounts: enable_banking_item.accounts %>
+        <% end %>
+
+        <%# Count unlinked Enable Banking accounts %>
+        <% unlinked_count = enable_banking_item.enable_banking_accounts
+             .left_joins(:account_provider)
+             .where(account_providers: { id: nil })
+             .count %>
+
+        <% if unlinked_count.to_i > 0 %>
+          <div class="p-4 flex flex-col gap-3 items-center justify-center">
+            <p class="text-primary font-medium text-sm">Setup needed</p>
+            <p class="text-secondary text-sm"><%= pluralize(unlinked_count, "account") %> imported from Enable Banking need to be set up</p>
+            <%= render DS::Link.new(
+              text: "Set up accounts",
+              icon: "settings",
+              variant: "primary",
+              href: setup_accounts_enable_banking_item_path(enable_banking_item),
+              frame: :modal
+            ) %>
+          </div>
+        <% elsif enable_banking_item.accounts.empty? && enable_banking_item.enable_banking_accounts.empty? %>
+          <div class="p-4 flex flex-col gap-3 items-center justify-center">
+            <p class="text-primary font-medium text-sm">No accounts found</p>
+            <p class="text-secondary text-sm">No accounts were found from Enable Banking. Try syncing again.</p>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
   </details>
 <% end %>
