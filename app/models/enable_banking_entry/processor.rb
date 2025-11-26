@@ -106,12 +106,13 @@ class EnableBankingEntry::Processor
       @amount_value ||= begin
         tx_amount = data[:transaction_amount] || {}
         raw_amount = tx_amount[:amount] || data[:amount] || "0"
+        sign = credit_debit_indicator == "CRDT" ? -1 : 1
 
         case raw_amount
         when String
-          BigDecimal(raw_amount)
+          BigDecimal(raw_amount) * sign
         when Numeric
-          BigDecimal(raw_amount.to_s)
+          BigDecimal(raw_amount.to_s) * sign
         else
           BigDecimal("0")
         end
@@ -126,6 +127,10 @@ class EnableBankingEntry::Processor
       # Sure uses the same convention: negative = expense, positive = income
       # Therefore, use the amount as-is from the API without inversion
       amount_value
+    end
+
+    def credit_debit_indicator
+      enable_banking_transaction.dig("credit_debit_indicator")
     end
 
     def currency
