@@ -121,7 +121,7 @@ class EnableBankingItemsController < ApplicationController
         state: @enable_banking_item.id
       )
 
-      redirect_to redirect_url, allow_other_host: true
+      redirect_to redirect_url, allow_other_host: true, status: :see_other
     rescue Provider::EnableBanking::EnableBankingError => e
       Rails.logger.error "Enable Banking authorization error: #{e.message}"
       redirect_to settings_providers_path, alert: t(".authorization_failed", default: "Failed to start authorization: %{message}", message: e.message)
@@ -194,7 +194,7 @@ class EnableBankingItemsController < ApplicationController
         state: @enable_banking_item.id
       )
 
-      redirect_to redirect_url, allow_other_host: true
+      redirect_to redirect_url, allow_other_host: true, status: :see_other
     rescue Provider::EnableBanking::EnableBankingError => e
       Rails.logger.error "Enable Banking reauthorization error: #{e.message}"
       redirect_to settings_providers_path, alert: t(".reauthorization_failed", default: "Failed to re-authorize: %{message}", message: e.message)
