@@ -378,7 +378,7 @@ class EnableBankingItemsController < ApplicationController
         redirect_url: enable_banking_callback_url,
         state: @enable_banking_item.id
       )
-      return redirect_url
+      redirect_url
     end
 
     # Generate the callback URL for Enable Banking OAuth
