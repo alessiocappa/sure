@@ -115,11 +115,7 @@ class EnableBankingItemsController < ApplicationController
     end
 
     begin
-      redirect_url = @enable_banking_item.start_authorization(
-        aspsp_name: aspsp_name,
-        redirect_url: enable_banking_callback_url,
-        state: @enable_banking_item.id
-      )
+      redirect_url = generate_authorization_url(aspsp_name)
 
       redirect_to redirect_url, allow_other_host: true, status: :see_other
     rescue Provider::EnableBanking::EnableBankingError => e
@@ -188,11 +184,7 @@ class EnableBankingItemsController < ApplicationController
   # Re-authorize an expired session
   def reauthorize
     begin
-      redirect_url = @enable_banking_item.start_authorization(
-        aspsp_name: @enable_banking_item.aspsp_name,
-        redirect_url: enable_banking_callback_url,
-        state: @enable_banking_item.id
-      )
+      redirect_url = generate_authorization_url(@enable_banking_item.aspsp_name)
 
       redirect_to redirect_url, allow_other_host: true, status: :see_other
     rescue Provider::EnableBanking::EnableBankingError => e
@@ -378,6 +370,15 @@ class EnableBankingItemsController < ApplicationController
         :application_id,
         :client_certificate
       )
+    end
+
+    def generate_authorization_url(aspsp_name)
+      redirect_url = @enable_banking_item.start_authorization(
+        aspsp_name: aspsp_name,
+        redirect_url: enable_banking_callback_url,
+        state: @enable_banking_item.id
+      )
+      return redirect_url
     end
 
     # Generate the callback URL for Enable Banking OAuth
