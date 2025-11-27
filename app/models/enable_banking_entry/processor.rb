@@ -28,7 +28,6 @@ class EnableBankingEntry::Processor
         currency: currency,
         date: date,
         name: name,
-        notes: notes,
         source: "enable_banking",
         merchant: merchant,
         notes: notes
@@ -133,7 +132,7 @@ class EnableBankingEntry::Processor
     def amount_value
       @amount_value ||= begin
         tx_amount = data[:transaction_amount] || {}
-        raw_amount = tx_amount[:amount] || data[:amount] || "0"        
+        raw_amount = tx_amount[:amount] || data[:amount] || "0"
 
         absolute_amount = case raw_amount
         when String
@@ -161,12 +160,7 @@ class EnableBankingEntry::Processor
       # Enable Banking uses PSD2 Berlin Group convention: negative = debit (outflow), positive = credit (inflow)
       # Sure uses the same convention: negative = expense, positive = income
       # Therefore, use the amount as-is from the API without inversion
-      sign = credit_debit_indicator == "CRDT" ? -1 : 1
-      amount_value * sign
-    end
-
-    def credit_debit_indicator
-      data[:credit_debit_indicator]
+      amount_value
     end
 
     def currency
