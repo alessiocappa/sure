@@ -30,7 +30,8 @@ class EnableBankingEntry::Processor
         name: name,
         notes: notes,
         source: "enable_banking",
-        merchant: merchant
+        merchant: merchant,
+        notes: notes
       )
     rescue ArgumentError => e
       Rails.logger.error "EnableBankingEntry::Processor - Validation error for transaction #{external_id}: #{e.message}"
@@ -68,19 +69,36 @@ class EnableBankingEntry::Processor
     end
 
     def name
-      data.dig("bank_transaction_code", "description") || data.dig("remittance_information")&.first
-    end
+      # Build name from available Enable Banking transaction fields
+      # Priority: counterparty name > bank_transaction_code description > remittance_information
 
-    def notes
-      Array(data.dig("remittance_information")).join(" ")
+      # Determine counterparty based on transaction direction
+      # For outgoing payments (DBIT), counterparty is the creditor (who we paid)
+      # For incoming payments (CRDT), counterparty is the debtor (who paid us)
+      counterparty = if credit_debit_indicator == "CRDT"
+        data.dig(:debtor, :name) || data[:debtor_name]
+      else
+        data.dig(:creditor, :name) || data[:creditor_name]
+      end
+
+      return counterparty if counterparty.present?
+
+      # Fall back to bank_transaction_code description
+      bank_tx_description = data.dig(:bank_transaction_code, :description)
+      return bank_tx_description if bank_tx_description.present?
+
+      # Last resort: use remittance_information
+      remittance = data[:remittance_information]
+      remittance&.first&.truncate(100)
     end
 
     def merchant
-      # Try to extract merchant from creditor (for outgoing) or debtor (for incoming)
-      merchant_name = if amount_value.negative?
-        data[:creditor_name]
+      # For outgoing payments (DBIT), merchant is the creditor (who we paid)
+      # For incoming payments (CRDT), merchant is the debtor (who paid us)
+      merchant_name = if credit_debit_indicator == "CRDT"
+        data.dig(:debtor, :name) || data[:debtor_name]
       else
-        data[:debtor_name]
+        data.dig(:creditor, :name) || data[:creditor_name]
       end
 
       return nil unless merchant_name.present?
@@ -102,23 +120,38 @@ class EnableBankingEntry::Processor
       end
     end
 
+    def notes
+      remittance = data[:remittance_information]
+      return nil unless remittance.is_a?(Array) && remittance.any?
+
+      remittance.join("\n")
+    end
+
     def amount_value
       @amount_value ||= begin
         tx_amount = data[:transaction_amount] || {}
         raw_amount = tx_amount[:amount] || data[:amount] || "0"        
 
-        case raw_amount
+        absolute_amount = case raw_amount
         when String
-          BigDecimal(raw_amount)
+          BigDecimal(raw_amount).abs
         when Numeric
-          BigDecimal(raw_amount.to_s)
+          BigDecimal(raw_amount.to_s).abs
         else
           BigDecimal("0")
         end
+
+        # CRDT (credit) = money coming in = positive
+        # DBIT (debit) = money going out = negative
+        credit_debit_indicator == "CRDT" ? absolute_amount : -absolute_amount
       rescue ArgumentError => e
         Rails.logger.error "Failed to parse Enable Banking transaction amount: #{raw_amount.inspect} - #{e.message}"
         raise
       end
+    end
+
+    def credit_debit_indicator
+      data[:credit_debit_indicator]
     end
 
     def amount
