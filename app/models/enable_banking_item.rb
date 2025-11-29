@@ -1,5 +1,5 @@
 class EnableBankingItem < ApplicationRecord
-  include Syncable, Provided
+  include Syncable, Provided, Unlinking
 
   enum :status, { good: "good", requires_update: "requires_update" }, default: :good
 
@@ -166,6 +166,18 @@ class EnableBankingItem < ApplicationRecord
     accounts.any?
   end
 
+  def linked_accounts_count
+    enable_banking_accounts.joins(:account_provider).count
+  end
+
+  def unlinked_accounts_count
+    enable_banking_accounts.left_joins(:account_provider).where(account_providers: { id: nil }).count
+  end
+
+  def total_accounts_count
+    enable_banking_accounts.count
+  end
+
   def sync_status_summary
     latest = latest_sync
     return nil unless latest
@@ -260,11 +272,11 @@ class EnableBankingItem < ApplicationRecord
       return if accounts_data.blank?
 
       accounts_data.each do |account_data|
-        uid = account_data[:uid]
-        identification_hash = account_data[:identification_hash]
+        # Use identification_hash as the stable identifier across sessions
+        uid = account_data[:identification_hash] || account_data[:uid]
         next unless uid.present?
 
-        enable_banking_account = enable_banking_accounts.find_or_initialize_by(identification_hash: identification_hash)
+        enable_banking_account = enable_banking_accounts.find_or_initialize_by(uid: uid)
         enable_banking_account.upsert_enable_banking_snapshot!(account_data)
         enable_banking_account.save!
       end

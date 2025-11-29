@@ -68,6 +68,12 @@ class EnableBankingItemsController < ApplicationController
   end
 
   def destroy
+    # Ensure we detach provider links before scheduling deletion
+    begin
+      @enable_banking_item.unlink_all!(dry_run: false)
+    rescue => e
+      Rails.logger.warn("Enable Banking unlink during destroy failed: #{e.class} - #{e.message}")
+    end
     @enable_banking_item.revoke_session
     @enable_banking_item.destroy_later
     redirect_to settings_providers_path, notice: t(".success", default: "Scheduled Enable Banking connection for deletion.")
@@ -90,6 +96,9 @@ class EnableBankingItemsController < ApplicationController
       redirect_to settings_providers_path, alert: t(".credentials_required", default: "Please configure your Enable Banking credentials first.")
       return
     end
+
+    # Track if this is for creating a new connection (vs re-authorizing existing)
+    @new_connection = params[:new_connection] == "true"
 
     begin
       provider = @enable_banking_item.enable_banking_provider
@@ -115,12 +124,37 @@ class EnableBankingItemsController < ApplicationController
     end
 
     begin
-      redirect_url = generate_authorization_url(aspsp_name)
+      # If this is a new connection request, create the item now (when user has selected a bank)
+      target_item = if params[:new_connection] == "true"
+        Current.family.enable_banking_items.create!(
+          name: "Enable Banking Connection",
+          country_code: @enable_banking_item.country_code,
+          application_id: @enable_banking_item.application_id,
+          client_certificate: @enable_banking_item.client_certificate
+        )
+      else
+        @enable_banking_item
+      end
 
-      redirect_to redirect_url, allow_other_host: true, status: :see_other
+      redirect_url = target_item.start_authorization(
+        aspsp_name: aspsp_name,
+        redirect_url: enable_banking_callback_url,
+        state: target_item.id
+      )
+
+      safe_redirect_to_enable_banking(
+        redirect_url,
+        fallback_path: settings_providers_path,
+        fallback_alert: t(".invalid_redirect", default: "Invalid authorization URL received. Please try again or contact support.")
+      )
     rescue Provider::EnableBanking::EnableBankingError => e
-      Rails.logger.error "Enable Banking authorization error: #{e.message}"
-      redirect_to settings_providers_path, alert: t(".authorization_failed", default: "Failed to start authorization: %{message}", message: e.message)
+      if e.message.include?("REDIRECT_URI_NOT_ALLOWED")
+        Rails.logger.error "Enable Banking redirect URI not allowed: #{e.message}"
+        redirect_to settings_providers_path, alert: t(".redirect_uri_not_allowed", default: "Redirect not allowew. Configure `%{callback_url}` in your Enable Banking application settings.", callback_url: enable_banking_callback_url)
+      else
+        Rails.logger.error "Enable Banking authorization error: #{e.message}"
+        redirect_to settings_providers_path, alert: t(".authorization_failed", default: "Failed to start authorization: %{message}", message: e.message)
+      end
     rescue => e
       Rails.logger.error "Unexpected error in authorize: #{e.class}: #{e.message}"
       redirect_to settings_providers_path, alert: t(".unexpected_error", default: "An unexpected error occurred. Please try again.")
@@ -169,24 +203,27 @@ class EnableBankingItemsController < ApplicationController
     end
   end
 
-  # Create a new connection using credentials from an existing item
+  # Show bank selection for a new connection using credentials from an existing item
+  # Does NOT create a new item - that happens in authorize when user selects a bank
   def new_connection
-    new_item = Current.family.enable_banking_items.create!(
-      name: "Enable Banking Connection",
-      country_code: @enable_banking_item.country_code,
-      application_id: @enable_banking_item.application_id,
-      client_certificate: @enable_banking_item.client_certificate
-    )
-
-    redirect_to select_bank_enable_banking_item_path(new_item), data: { turbo_frame: "modal" }
+    # Redirect to select_bank with a flag indicating this is for a new connection
+    redirect_to select_bank_enable_banking_item_path(@enable_banking_item, new_connection: true), data: { turbo_frame: "modal" }
   end
 
   # Re-authorize an expired session
   def reauthorize
     begin
-      redirect_url = generate_authorization_url(@enable_banking_item.aspsp_name)
+      redirect_url = @enable_banking_item.start_authorization(
+        aspsp_name: @enable_banking_item.aspsp_name,
+        redirect_url: enable_banking_callback_url,
+        state: @enable_banking_item.id
+      )
 
-      redirect_to redirect_url, allow_other_host: true, status: :see_other
+      safe_redirect_to_enable_banking(
+        redirect_url,
+        fallback_path: settings_providers_path,
+        fallback_alert: t(".invalid_redirect", default: "Invalid authorization URL received. Please try again or contact support.")
+      )
     rescue Provider::EnableBanking::EnableBankingError => e
       Rails.logger.error "Enable Banking reauthorization error: #{e.message}"
       redirect_to settings_providers_path, alert: t(".reauthorization_failed", default: "Failed to re-authorize: %{message}", message: e.message)
@@ -213,33 +250,43 @@ class EnableBankingItemsController < ApplicationController
     created_accounts = []
     already_linked_accounts = []
 
-    selected_uids.each do |uid|
-      enable_banking_account = enable_banking_item.enable_banking_accounts.find_by(uid: uid)
-      next unless enable_banking_account
+    # Wrap in transaction so partial failures don't leave orphaned accounts without provider links
+    begin
+      ActiveRecord::Base.transaction do
+        selected_uids.each do |uid|
+          enable_banking_account = enable_banking_item.enable_banking_accounts.find_by(uid: uid)
+          next unless enable_banking_account
 
-      # Check if already linked
-      if enable_banking_account.account_provider.present?
-        already_linked_accounts << enable_banking_account.name
-        next
+          # Check if already linked
+          if enable_banking_account.account_provider.present?
+            already_linked_accounts << enable_banking_account.name
+            next
+          end
+
+          # Create the internal Account (uses save! internally, will raise on failure)
+          account = Account.create_and_sync(
+            family: Current.family,
+            name: enable_banking_account.name,
+            balance: enable_banking_account.current_balance || 0,
+            currency: enable_banking_account.currency || "EUR",
+            accountable_type: accountable_type,
+            accountable_attributes: {}
+          )
+
+          # Link account to enable_banking_account via account_providers
+          # Uses create! so any failure will rollback the entire transaction
+          AccountProvider.create!(
+            account: account,
+            provider: enable_banking_account
+          )
+
+          created_accounts << account
+        end
       end
-
-      # Create the internal Account
-      account = Account.create_and_sync(
-        family: Current.family,
-        name: enable_banking_account.name,
-        balance: enable_banking_account.current_balance || 0,
-        currency: enable_banking_account.currency || "EUR",
-        accountable_type: accountable_type,
-        accountable_attributes: {}
-      )
-
-      # Link account to enable_banking_account via account_providers
-      AccountProvider.create!(
-        account: account,
-        provider: enable_banking_account
-      )
-
-      created_accounts << account
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
+      Rails.logger.error "Enable Banking link_accounts failed: #{e.class} - #{e.message}"
+      redirect_to accounts_path, alert: t(".link_failed", default: "Failed to link accounts: %{error}", error: e.message)
+      return
     end
 
     # Trigger sync if accounts were created
@@ -372,15 +419,6 @@ class EnableBankingItemsController < ApplicationController
       )
     end
 
-    def generate_authorization_url(aspsp_name)
-      redirect_url = @enable_banking_item.start_authorization(
-        aspsp_name: aspsp_name,
-        redirect_url: enable_banking_callback_url,
-        state: @enable_banking_item.id
-      )
-      redirect_url
-    end
-
     # Generate the callback URL for Enable Banking OAuth
     # In production, uses the standard Rails route
     # In development, uses DEV_WEBHOOKS_URL if set (e.g., ngrok URL)
@@ -388,5 +426,44 @@ class EnableBankingItemsController < ApplicationController
       return callback_enable_banking_items_url if Rails.env.production?
 
       ENV.fetch("DEV_WEBHOOKS_URL", root_url.chomp("/")) + "/enable_banking_items/callback"
+    end
+
+    # Validate redirect URLs from Enable Banking API to prevent open redirect attacks
+    # Only allows HTTPS URLs from trusted Enable Banking domains
+    TRUSTED_ENABLE_BANKING_HOSTS = %w[
+      enablebanking.com
+      api.enablebanking.com
+      auth.enablebanking.com
+    ].freeze
+
+    def valid_enable_banking_redirect_url?(url)
+      return false if url.blank?
+
+      begin
+        uri = URI.parse(url)
+
+        # Must be HTTPS
+        return false unless uri.scheme == "https"
+
+        # Host must be present
+        return false if uri.host.blank?
+
+        # Check if host matches or is a subdomain of trusted domains
+        TRUSTED_ENABLE_BANKING_HOSTS.any? do |trusted_host|
+          uri.host == trusted_host || uri.host.end_with?(".#{trusted_host}")
+        end
+      rescue URI::InvalidURIError => e
+        Rails.logger.warn("Enable Banking invalid redirect URL: #{url.inspect} - #{e.message}")
+        false
+      end
+    end
+
+    def safe_redirect_to_enable_banking(redirect_url, fallback_path:, fallback_alert:)
+      if valid_enable_banking_redirect_url?(redirect_url)
+        redirect_to redirect_url, allow_other_host: true
+      else
+        Rails.logger.warn("Enable Banking redirect blocked - invalid URL: #{redirect_url.inspect}")
+        redirect_to fallback_path, alert: fallback_alert
+      end
     end
 end
