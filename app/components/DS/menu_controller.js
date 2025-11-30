@@ -111,21 +111,12 @@ export default class extends Controller {
       middleware: [offset(this.offsetValue), shift({ padding: 5 })],
       strategy: "fixed",
     }).then(({ x, y }) => {
-      if (isSmallScreen) {
-        Object.assign(this.contentTarget.style, {
-          position: "fixed",
-          left: "0px",
-          width: "100vw",
-          top: `${y}px`,
-        });
-      } else {
-        Object.assign(this.contentTarget.style, {
+      Object.assign(this.contentTarget.style, {
           position: "fixed",
           left: `${x}px`,
           top: `${y}px`,
           width: "",
         });
-      }
     });
   }
 }
