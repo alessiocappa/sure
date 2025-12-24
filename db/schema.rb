@@ -46,6 +46,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_12_15_100443) do
     t.jsonb "locked_attributes", default: {}
     t.string "status", default: "active"
     t.uuid "simplefin_account_id"
+    t.uuid "enable_banking_account_id"
     t.string "institution_name"
     t.string "institution_domain"
     t.text "notes"
