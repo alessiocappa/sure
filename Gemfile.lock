@@ -281,9 +281,6 @@ GEM
       bindata
       faraday (~> 2.0)
       faraday-follow_redirects
-    json-schema (5.2.2)
-      addressable (~> 2.8)
-      bigdecimal (~> 3.1)
     jwt (2.10.2)
       base64
     langfuse-ruby (0.1.4)
@@ -401,7 +398,6 @@ GEM
     parser (3.3.9.0)
       ast (~> 2.4.1)
       racc
-    pg (1.6.2)
     pg (1.6.2-aarch64-linux)
     pg (1.6.2-arm64-darwin)
     pg (1.6.2-x86_64-linux)
@@ -614,7 +610,6 @@ GEM
     tailwindcss-rails (4.2.3)
       railties (>= 7.0.0)
       tailwindcss-ruby (~> 4.0)
-    tailwindcss-ruby (4.1.13)
     tailwindcss-ruby (4.1.13-aarch64-linux-gnu)
     tailwindcss-ruby (4.1.13-arm64-darwin)
     tailwindcss-ruby (4.1.13-x86_64-linux-gnu)
@@ -707,7 +702,7 @@ DEPENDENCIES
   langfuse-ruby (~> 0.1.4)
   letter_opener
   logtail-rails
-  lookbook (= 2.3.11)
+  lookbook
   lucide-rails
   mocha
   octokit
