@@ -106,7 +106,7 @@ class SimplefinEntry::Processor
       elsif description.present?
         description
       else
-        data[:memo] || "Unknown transaction"
+        data[:memo] || I18n.t("transactions.unknown_name")
       end
     end
 
@@ -161,6 +161,8 @@ class SimplefinEntry::Processor
 
     def posted_date
       val = data[:posted]
+      # Treat 0 / "0" as missing to avoid Unix epoch 1970-01-01
+      return nil if val == 0 || val == "0"
       Simplefin::DateUtils.parse_provider_date(val)
     end
 

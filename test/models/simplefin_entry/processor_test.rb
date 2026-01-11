@@ -118,30 +118,6 @@ class SimplefinEntry::ProcessorTest < ActiveSupport::TestCase
     assert_equal true, sf["pending"], "expected pending flag to be true when provider sends pending=true"
   end
 
-  test "posted==0 treated as missing, entry uses transacted_at date and flags pending" do
-    # Simulate provider sending epoch-like zeros for posted and an integer transacted_at
-    t_epoch = (Date.current - 2).to_time.to_i
-    tx = {
-      id: "tx_pending_zero_posted_1",
-      amount: "-6.48",
-      currency: "USD",
-      payee: "Dunkin'",
-      description: "DUNKIN #358863",
-      memo: "",
-      posted: 0,
-      transacted_at: t_epoch,
-      pending: true
-    }
-
-    SimplefinEntry::Processor.new(tx, simplefin_account: @simplefin_account).process
-
-    entry = @account.entries.find_by!(external_id: "simplefin_tx_pending_zero_posted_1", source: "simplefin")
-    # For depository accounts, processor prefers posted, then transacted; posted==0 should be treated as missing
-    assert_equal Time.at(t_epoch).to_date, entry.date, "expected entry.date to use transacted_at when posted==0"
-    sf = entry.transaction.extra.fetch("simplefin")
-    assert_equal true, sf["pending"], "expected pending flag to be true when posted==0 and/or pending=true"
-  end
-
   test "infers pending when posted is explicitly 0 and transacted_at present (no explicit pending flag)" do
     # Some SimpleFIN banks indicate pending by sending posted=0 + transacted_at, without pending flag
     t_epoch = (Date.current - 1).to_time.to_i
