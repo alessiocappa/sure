@@ -52,9 +52,32 @@ en:
       status_never: Never synced
       status_with_summary: "Last synced %{timestamp} ago • %{summary}"
       syncing: Syncing...
-      update: Update connection
+      update: Update
+      stale_pending_note: "(excluded from budgets)"
+      stale_pending_accounts: "in: %{accounts}"
+      reconciled_details_note: "(see sync summary for details)"
+      duplicate_accounts_skipped: "Some accounts were skipped as duplicates — use 'Link existing accounts' to merge."
     select_existing_account:
       title: "Link %{account_name} to SimpleFIN"
       description: Select a SimpleFIN account to link to your existing account
       cancel: Cancel
       link_account: Link account
+      no_accounts_found: No SimpleFIN accounts found for this family.
+      wait_for_sync: If you just connected or synced, try again after the sync completes.
+      unlink_to_move: To move a link, first unlink it from the account’s actions menu.
+      all_accounts_already_linked: All SimpleFIN accounts appear to be linked already.
+      currently_linked_to: "Currently linked to: %{account_name}"
+
+    link_existing_account:
+      success: Account successfully linked to SimpleFIN
+      errors:
+        only_manual: Only manual accounts can be linked
+        invalid_simplefin_account: Invalid SimpleFIN account selected
+    reconciled_status:
+      message:
+        one: "%{count} duplicate pending transaction reconciled"
+        other: "%{count} duplicate pending transactions reconciled"
+    stale_pending_status:
+      message:
+        one: "%{count} pending transaction older than %{days} days"
+        other: "%{count} pending transactions older than %{days} days"

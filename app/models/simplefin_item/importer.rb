@@ -8,6 +8,7 @@ class SimplefinItem::Importer
     @simplefin_provider = simplefin_provider
     @sync = sync
     @enqueued_holdings_job_ids = Set.new
+    @reconciled_account_ids = Set.new  # Debounce pending reconciliation per run
   end
 
   def import
@@ -306,8 +307,12 @@ class SimplefinItem::Importer
       perform_account_discovery
 
       # Step 2: Fetch transactions/holdings using the regular window.
+      # Note: Don't pass explicit `pending:` here - let fetch_accounts_data use the
+      # SIMPLEFIN_INCLUDE_PENDING config. This allows users to disable pending transactions
+      # if their bank's SimpleFIN integration produces duplicates when pending→posted.
       start_date = determine_sync_start_date
-      accounts_data = fetch_accounts_data(start_date: start_date, pending: true)
+      Rails.logger.info "SimplefinItem::Importer - import_regular_sync: last_synced_at=#{simplefin_item.last_synced_at&.strftime('%Y-%m-%d %H:%M')} => start_date=#{start_date&.strftime('%Y-%m-%d')}"
+      accounts_data = fetch_accounts_data(start_date: start_date)
       return if accounts_data.nil? # Error already handled
 
       # Store raw payload
@@ -391,6 +396,16 @@ class SimplefinItem::Importer
     # Returns a Hash payload with keys like :accounts, or nil when an error is
     # handled internally via `handle_errors`.
     def fetch_accounts_data(start_date:, end_date: nil, pending: nil)
+      # Determine whether to include pending based on explicit arg, env var, or Setting.
+      # Priority: explicit arg > env var > Setting (allows runtime changes via UI)
+      effective_pending = if !pending.nil?
+        pending
+      elsif ENV["SIMPLEFIN_INCLUDE_PENDING"].present?
+        Rails.configuration.x.simplefin.include_pending
+      else
+        Setting.syncs_include_pending
+      end
+
       # Debug logging to track exactly what's being sent to SimpleFin API
       start_str = start_date.respond_to?(:strftime) ? start_date.strftime("%Y-%m-%d") : "none"
       end_str = end_date.respond_to?(:strftime) ? end_date.strftime("%Y-%m-%d") : "current"
@@ -532,6 +547,15 @@ class SimplefinItem::Importer
         # Post-save side effects
         acct = simplefin_account.current_account
         if acct
+          # Handle pending transaction reconciliation (debounced per run to avoid
+          # repeated scans during chunked history imports)
+          unless @reconciled_account_ids.include?(acct.id)
+            @reconciled_account_ids << acct.id
+            reconcile_and_track_pending_duplicates(acct)
+            exclude_and_track_stale_pending(acct)
+            track_stale_unmatched_pending(acct)
+          end
+
           # Refresh credit attributes when available-balance present
           if acct.accountable_type == "CreditCard" && account_data[:"available-balance"].present?
             begin
@@ -703,7 +727,269 @@ class SimplefinItem::Importer
     end
 
     def sync_buffer_period
-      # Default to 7 days buffer for subsequent syncs
-      7
+      # Default to 30 days buffer for subsequent syncs
+      # Investment accounts often have infrequent transactions (dividends, etc.)
+      # that would be missed with a shorter window
+      30
+    end
+
+    # Transaction reconciliation: detect potential data gaps or missing transactions
+    # This helps identify when SimpleFin may not be returning complete data
+    def reconcile_transactions(simplefin_account, new_transactions)
+      return if new_transactions.blank?
+
+      account_id = simplefin_account.account_id
+      existing_transactions = simplefin_account.raw_transactions_payload.to_a
+      reconciliation = { account_id: account_id, issues: [] }
+
+      # 1. Check for unexpected transaction count drops
+      # If we previously had more transactions and now have fewer (after merge),
+      # something may have been removed upstream
+      if existing_transactions.any?
+        existing_count = existing_transactions.size
+        new_count = new_transactions.size
+
+        # After merging, we should have at least as many as before
+        # A significant drop (>10%) could indicate data loss
+        if new_count < existing_count
+          drop_pct = ((existing_count - new_count).to_f / existing_count * 100).round(1)
+          if drop_pct > 10
+            reconciliation[:issues] << {
+              type: "transaction_count_drop",
+              message: "Transaction count dropped from #{existing_count} to #{new_count} (#{drop_pct}% decrease)",
+              severity: drop_pct > 25 ? "high" : "medium"
+            }
+          end
+        end
+      end
+
+      # 2. Detect gaps in transaction history
+      # Look for periods with no transactions that seem unusual
+      gaps = detect_transaction_gaps(new_transactions)
+      if gaps.any?
+        reconciliation[:issues] += gaps.map do |gap|
+          {
+            type: "transaction_gap",
+            message: "No transactions between #{gap[:start_date]} and #{gap[:end_date]} (#{gap[:days]} days)",
+            severity: gap[:days] > 30 ? "high" : "medium",
+            gap_start: gap[:start_date],
+            gap_end: gap[:end_date],
+            gap_days: gap[:days]
+          }
+        end
+      end
+
+      # 3. Check for stale data (most recent transaction is old)
+      latest_tx_date = extract_latest_transaction_date(new_transactions)
+      if latest_tx_date.present?
+        days_since_latest = (Date.current - latest_tx_date).to_i
+        if days_since_latest > 7
+          reconciliation[:issues] << {
+            type: "stale_transactions",
+            message: "Most recent transaction is #{days_since_latest} days old",
+            severity: days_since_latest > 14 ? "high" : "medium",
+            latest_date: latest_tx_date.to_s,
+            days_stale: days_since_latest
+          }
+        end
+      end
+
+      # 4. Check for duplicate transaction IDs (data integrity issue)
+      duplicate_ids = find_duplicate_transaction_ids(new_transactions)
+      if duplicate_ids.any?
+        reconciliation[:issues] << {
+          type: "duplicate_ids",
+          message: "Found #{duplicate_ids.size} duplicate transaction ID(s)",
+          severity: "low",
+          duplicate_count: duplicate_ids.size
+        }
+      end
+
+      # Record reconciliation results in stats
+      if reconciliation[:issues].any?
+        stats["reconciliation"] ||= {}
+        stats["reconciliation"][account_id] = reconciliation
+
+        # Count issues by severity
+        high_severity = reconciliation[:issues].count { |i| i[:severity] == "high" }
+        medium_severity = reconciliation[:issues].count { |i| i[:severity] == "medium" }
+
+        if high_severity > 0
+          stats["reconciliation_warnings"] = stats.fetch("reconciliation_warnings", 0) + high_severity
+          Rails.logger.warn("SimpleFin reconciliation: #{high_severity} high-severity issue(s) for account #{account_id}")
+
+          ActiveSupport::Notifications.instrument(
+            "simplefin.reconciliation_warning",
+            item_id: simplefin_item.id,
+            account_id: account_id,
+            issues: reconciliation[:issues]
+          )
+        end
+
+        if medium_severity > 0
+          stats["reconciliation_notices"] = stats.fetch("reconciliation_notices", 0) + medium_severity
+        end
+
+        persist_stats!
+      end
+
+      reconciliation
+    end
+
+    # Detect gaps in transaction history (periods with no activity)
+    def detect_transaction_gaps(transactions)
+      return [] if transactions.blank? || transactions.size < 2
+
+      # Extract and sort transaction dates
+      dates = transactions.map do |tx|
+        t = tx.with_indifferent_access
+        posted = t[:posted]
+        next nil if posted.blank? || posted.to_i <= 0
+        Time.at(posted.to_i).to_date
+      end.compact.uniq.sort
+
+      return [] if dates.size < 2
+
+      gaps = []
+      min_gap_days = 14 # Only report gaps of 2+ weeks
+
+      dates.each_cons(2) do |earlier, later|
+        gap_days = (later - earlier).to_i
+        if gap_days >= min_gap_days
+          gaps << {
+            start_date: earlier.to_s,
+            end_date: later.to_s,
+            days: gap_days
+          }
+        end
+      end
+
+      # Limit to top 3 largest gaps to avoid noise
+      gaps.sort_by { |g| -g[:days] }.first(3)
+    end
+
+    # Extract the most recent transaction date
+    def extract_latest_transaction_date(transactions)
+      return nil if transactions.blank?
+
+      latest_timestamp = transactions.map do |tx|
+        t = tx.with_indifferent_access
+        posted = t[:posted]
+        posted.to_i if posted.present? && posted.to_i > 0
+      end.compact.max
+
+      latest_timestamp ? Time.at(latest_timestamp).to_date : nil
+    end
+
+    # Find duplicate transaction IDs
+    def find_duplicate_transaction_ids(transactions)
+      return [] if transactions.blank?
+
+      ids = transactions.map do |tx|
+        t = tx.with_indifferent_access
+        t[:id] || t[:fitid]
+      end.compact
+
+      ids.group_by(&:itself).select { |_, v| v.size > 1 }.keys
+    end
+
+    # Reconcile pending transactions that have a matching posted version
+    # Handles duplicates where pending and posted both exist (tip adjustments, etc.)
+    def reconcile_and_track_pending_duplicates(account)
+      reconcile_stats = Entry.reconcile_pending_duplicates(account: account, dry_run: false)
+
+      exact_matches = reconcile_stats[:details].select { |d| d[:match_type] == "exact" }
+      fuzzy_suggestions = reconcile_stats[:details].select { |d| d[:match_type] == "fuzzy_suggestion" }
+
+      if exact_matches.any?
+        stats["pending_reconciled"] = stats.fetch("pending_reconciled", 0) + exact_matches.size
+        stats["pending_reconciled_details"] ||= []
+        exact_matches.each do |detail|
+          stats["pending_reconciled_details"] << {
+            "account_name" => detail[:account],
+            "pending_name" => detail[:pending_name],
+            "posted_name" => detail[:posted_name]
+          }
+        end
+        stats["pending_reconciled_details"] = stats["pending_reconciled_details"].last(50)
+      end
+
+      if fuzzy_suggestions.any?
+        stats["duplicate_suggestions_created"] = stats.fetch("duplicate_suggestions_created", 0) + fuzzy_suggestions.size
+        stats["duplicate_suggestions_details"] ||= []
+        fuzzy_suggestions.each do |detail|
+          stats["duplicate_suggestions_details"] << {
+            "account_name" => detail[:account],
+            "pending_name" => detail[:pending_name],
+            "posted_name" => detail[:posted_name]
+          }
+        end
+        stats["duplicate_suggestions_details"] = stats["duplicate_suggestions_details"].last(50)
+      end
+    rescue => e
+      Rails.logger.warn("SimpleFin: pending reconciliation failed for account #{account.id}: #{e.class} - #{e.message}")
+      record_reconciliation_error("pending_reconciliation", account, e)
+    end
+
+    # Auto-exclude stale pending transactions (>8 days old with no matching posted version)
+    # Prevents orphaned pending transactions from affecting budgets indefinitely
+    def exclude_and_track_stale_pending(account)
+      excluded_count = Entry.auto_exclude_stale_pending(account: account)
+      return unless excluded_count > 0
+
+      stats["stale_pending_excluded"] = stats.fetch("stale_pending_excluded", 0) + excluded_count
+      stats["stale_pending_details"] ||= []
+      stats["stale_pending_details"] << {
+        "account_name" => account.name,
+        "account_id" => account.id,
+        "count" => excluded_count
+      }
+      stats["stale_pending_details"] = stats["stale_pending_details"].last(50)
+    rescue => e
+      Rails.logger.warn("SimpleFin: stale pending cleanup failed for account #{account.id}: #{e.class} - #{e.message}")
+      record_reconciliation_error("stale_pending_cleanup", account, e)
+    end
+
+    # Track stale pending transactions that couldn't be matched (for user awareness)
+    # These are >8 days old, still pending, and have no duplicate suggestion
+    def track_stale_unmatched_pending(account)
+      stale_unmatched = account.entries
+        .joins("INNER JOIN transactions ON transactions.id = entries.entryable_id AND entries.entryable_type = 'Transaction'")
+        .where(excluded: false)
+        .where("entries.date < ?", 8.days.ago.to_date)
+        .where(<<~SQL.squish)
+          (transactions.extra -> 'simplefin' ->> 'pending')::boolean = true
+          OR (transactions.extra -> 'plaid' ->> 'pending')::boolean = true
+        SQL
+        .where(<<~SQL.squish)
+          transactions.extra -> 'potential_posted_match' IS NULL
+        SQL
+        .count
+
+      return unless stale_unmatched > 0
+
+      stats["stale_unmatched_pending"] = stats.fetch("stale_unmatched_pending", 0) + stale_unmatched
+      stats["stale_unmatched_details"] ||= []
+      stats["stale_unmatched_details"] << {
+        "account_name" => account.name,
+        "account_id" => account.id,
+        "count" => stale_unmatched
+      }
+      stats["stale_unmatched_details"] = stats["stale_unmatched_details"].last(50)
+    rescue => e
+      Rails.logger.warn("SimpleFin: stale unmatched tracking failed for account #{account.id}: #{e.class} - #{e.message}")
+      record_reconciliation_error("stale_unmatched_tracking", account, e)
+    end
+
+    # Record reconciliation errors to sync_stats for UI visibility
+    def record_reconciliation_error(context, account, error)
+      stats["reconciliation_errors"] ||= []
+      stats["reconciliation_errors"] << {
+        "context" => context,
+        "account_id" => account.id,
+        "account_name" => account.name,
+        "error" => "#{error.class}: #{error.message}"
+      }
+      stats["reconciliation_errors"] = stats["reconciliation_errors"].last(20)
     end
 end
