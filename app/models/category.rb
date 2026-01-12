@@ -18,6 +18,12 @@ class Category < ApplicationRecord
   before_save :inherit_color_from_parent
 
   scope :alphabetically, -> { order(:name) }
+  scope :alphabetically_by_hierarchy, -> {
+    left_joins(:parent)
+      .order(Arel.sql("COALESCE(parents_categories.name, categories.name)"))
+      .order(Arel.sql("parents_categories.name IS NOT NULL"))
+      .order(:name)
+  }
   scope :roots, -> { where(parent_id: nil) }
   scope :incomes, -> { where(classification: "income") }
   scope :expenses, -> { where(classification: "expense") }
@@ -25,9 +31,14 @@ class Category < ApplicationRecord
   COLORS = %w[#e99537 #4da568 #6471eb #db5a54 #df4e92 #c44fe9 #eb5429 #61c9ea #805dee #6ad28a]
 
   UNCATEGORIZED_COLOR = "#737373"
+  OTHER_INVESTMENTS_COLOR = "#e99537"
   TRANSFER_COLOR = "#444CE7"
   PAYMENT_COLOR = "#db5a54"
   TRADE_COLOR = "#e99537"
+
+  # Synthetic category name keys for i18n
+  UNCATEGORIZED_NAME_KEY = "models.category.uncategorized"
+  OTHER_INVESTMENTS_NAME_KEY = "models.category.other_investments"
 
   class Group
     attr_reader :category, :subcategories
@@ -77,10 +88,28 @@ class Category < ApplicationRecord
 
     def uncategorized
       new(
-        name: "Uncategorized",
+        name: I18n.t(UNCATEGORIZED_NAME_KEY),
         color: UNCATEGORIZED_COLOR,
         lucide_icon: "circle-dashed"
       )
+    end
+
+    def other_investments
+      new(
+        name: I18n.t(OTHER_INVESTMENTS_NAME_KEY),
+        color: OTHER_INVESTMENTS_COLOR,
+        lucide_icon: "trending-up"
+      )
+    end
+
+    # Helper to get the localized name for uncategorized
+    def uncategorized_name
+      I18n.t(UNCATEGORIZED_NAME_KEY)
+    end
+
+    # Helper to get the localized name for other investments
+    def other_investments_name
+      I18n.t(OTHER_INVESTMENTS_NAME_KEY)
     end
 
     private
@@ -95,7 +124,7 @@ class Category < ApplicationRecord
           [ "Entertainment", "#a855f7", "drama", "expense" ],
           [ "Healthcare", "#4da568", "pill", "expense" ],
           [ "Personal Care", "#14b8a6", "scissors", "expense" ],
-          [ "Home Improvement", "#d97706", "house", "expense" ],
+          [ "Home Improvement", "#d97706", "hammer", "expense" ],
           [ "Mortgage / Rent", "#b45309", "home", "expense" ],
           [ "Utilities", "#eab308", "lightbulb", "expense" ],
           [ "Subscriptions", "#6366f1", "wifi", "expense" ],
@@ -131,6 +160,25 @@ class Category < ApplicationRecord
 
   def subcategory?
     parent.present?
+  end
+
+  def name_with_parent
+    subcategory? ? "#{parent.name} > #{name}" : name
+  end
+
+  # Predicate: is this the synthetic "Uncategorized" category?
+  def uncategorized?
+    !persisted? && name == I18n.t(UNCATEGORIZED_NAME_KEY)
+  end
+
+  # Predicate: is this the synthetic "Other Investments" category?
+  def other_investments?
+    !persisted? && name == I18n.t(OTHER_INVESTMENTS_NAME_KEY)
+  end
+
+  # Predicate: is this any synthetic (non-persisted) category?
+  def synthetic?
+    uncategorized? || other_investments?
   end
 
   private
