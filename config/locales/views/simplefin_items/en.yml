@@ -44,7 +44,7 @@ en:
       error: Error occurred while syncing data
       no_accounts_description: This connection doesn't have any synchronized accounts yet.
       no_accounts_title: No accounts found
-      requires_update: Requires re-authentication
+      requires_update: Reconnect
       setup_needed: New accounts ready to set up
       setup_description: Choose account types for your newly imported SimpleFin accounts.
       setup_action: Set Up New Accounts
