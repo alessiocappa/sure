@@ -38,6 +38,11 @@ class EnableBankingAccount::Processor
       account = enable_banking_account.current_account
       balance = enable_banking_account.current_balance || 0
 
+      # For liability accounts, ensure positive balances
+      if account.accountable_type == "CreditCard" || account.accountable_type == "Loan"
+        balance = -balance
+      end
+
       currency = parse_currency(enable_banking_account.currency) || account.currency || "EUR"
 
       account.update!(
