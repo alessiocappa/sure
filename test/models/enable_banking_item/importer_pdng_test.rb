@@ -143,4 +143,79 @@ class EnableBankingItem::ImporterPdngTest < ActiveSupport::TestCase
 
     assert_equal @enable_banking_account.id, found.id
   end
+
+  test "removes PDNG when matching BOOK exists via transaction_id" do
+    book_tx = {
+      transaction_id: "txn-1",
+      entry_reference: "ref-book",
+      booking_date: "2026-03-10",
+      transaction_amount: { amount: "10.00", currency: "EUR" },
+      credit_debit_indicator: "DBIT",
+      status: "BOOK"
+    }
+
+    pdng_tx = {
+      transaction_id: "txn-1",
+      entry_reference: "ref-pdng",
+      booking_date: "2026-03-10",
+      transaction_amount: { amount: "10.00", currency: "EUR" },
+      credit_debit_indicator: "DBIT",
+      status: "PDNG"
+    }
+
+    existing = [ pdng_tx ]
+
+    book_ids = Set.new(["txn-1"])
+    book_refs = Set.new
+    book_keys = Set.new
+
+    result = @importer.send(
+      :match_exists?,
+      pdng_tx,
+      book_ids: book_ids,
+      book_refs: book_refs,
+      book_content_keys: book_keys
+    )
+
+    assert_equal true, result
+  end
+
+  test "reconciles BOOK and PDNG using content key when transaction_id is missing" do
+    book_tx = {
+      transaction_id: nil,
+      entry_reference: "book_ref",
+      booking_date: "2026-03-10",
+      transaction_amount: { amount: "25.00", currency: "EUR" },
+      credit_debit_indicator: "DBIT",
+      creditor: { name: "Supermarket" },
+      remittance_information: "groceries"
+    }
+
+    pdng_tx = {
+      transaction_id: nil,
+      entry_reference: "pdng_ref",
+      booking_date: "2026-03-10",
+      transaction_amount: { amount: "25.00", currency: "EUR" },
+      credit_debit_indicator: "DBIT",
+      creditor: { name: "Supermarket" },
+      remittance_information: "groceries"
+    }
+
+    book_content_keys = Set.new([
+      @importer.send(:build_reconciliation_key, book_tx)
+    ])
+
+    book_ids = Set.new
+    book_refs = Set.new
+
+    result = @importer.send(
+      :match_exists?,
+      pdng_tx,
+      book_ids: book_ids,
+      book_refs: book_refs,
+      book_content_keys: book_content_keys
+    )
+
+    assert_equal true, result
+  end
 end
