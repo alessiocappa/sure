@@ -225,6 +225,55 @@ class EnableBankingItem::Importer
       existing
     end
 
+    def normalize_string(str)
+      str.to_s
+        .downcase
+        .strip
+        .gsub(/\s+/, " ")
+    end
+
+    def build_reconciliation_key(tx)
+      tx = tx.with_indifferent_access
+
+      amount = tx.dig(:transaction_amount, :amount) || tx[:amount]
+      currency = tx.dig(:transaction_amount, :currency) || tx[:currency]
+      direction = tx[:credit_debit_indicator]
+
+      name =
+        tx.dig(:creditor, :name) ||
+        tx[:creditor_name] ||
+        tx.dig(:debtor, :name) ||
+        tx[:debtor_name]
+
+      remittance = tx[:remittance_information]
+
+      normalized_name = normalize_string(name)
+      normalized_remittance =
+        normalize_string(remittance.is_a?(Array) ? remittance.join(" ") : remittance)
+
+      Digest::SHA256.hexdigest([
+        amount,
+        currency,
+        direction,
+        normalized_name,
+        normalized_remittance
+      ].join("|"))
+    end
+
+    def match_exists?(tx, book_ids:, book_refs:, book_content_keys:)
+      tx = tx.with_indifferent_access
+
+      if (transaction_id = tx[:transaction_id].presence)
+        return true if book_ids.include?(transaction_id)
+      end
+
+      if (entry_reference = tx[:entry_reference].presence)
+        return true if book_refs.include?(entry_reference)
+      end
+
+      book_content_keys.include?(build_reconciliation_key(tx))
+    end
+
     def fetch_and_store_transactions(enable_banking_account)
       start_date = determine_sync_start_date(enable_banking_account)
 
@@ -286,11 +335,24 @@ class EnableBankingItem::Importer
           .map { |tx| tx.with_indifferent_access[:entry_reference].presence }
           .compact.to_set
 
+        # Fallback: build a content-based key for BOOK transactions with no transaction_id and no entry_reference
+        book_content_keys = all_transactions.each_with_object(Set.new) do |tx, set|
+          tx = tx.with_indifferent_access
+          next if tx[:_pending]
+          set << build_reconciliation_key(tx)
+        end
+
         removed_pending = existing_transactions.reject! do |tx|
           tx = tx.with_indifferent_access
           pending_flag = tx.dig(:extra, :enable_banking, :pending) || tx[:_pending]
           next false unless pending_flag
-          tx[:transaction_id].present? ? book_ids.include?(tx[:transaction_id]) : book_entry_refs.include?(tx[:entry_reference].presence)
+
+          match_exists?(
+            tx,
+            book_ids: book_ids,
+            book_refs: book_entry_refs,
+            book_content_keys: book_content_keys
+          )
         end
 
         existing_ids = existing_transactions.map { |tx|
